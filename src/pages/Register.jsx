@@ -1,53 +1,217 @@
-import React from "react";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
+import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const Register = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const editData = location.state?.data || null;
+
+  const [formData, setFormData] = useState(
+    editData ||
+      JSON.parse(localStorage.getItem("matrimony_draft") || "null") || {
+        name: "",
+        gender: "",
+        dob: "",
+        age: "",
+        height: "",
+        maritalStatus: "",
+        motherTongue: "",
+        religion: "",
+        caste: "",
+        subCaste: "",
+        education: "",
+        occupation: "",
+        income: "",
+        country: "",
+        state: "",
+        city: "",
+        phone: "",
+        fatherName: "",
+        motherName: "",
+        siblings: "",
+        about: "",
+        photo: "",
+        email: "",
+        password: "",
+      }
+  );
+
+  // ✅ auto age calculation
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    if (name === "dob") {
+      const birthDate = new Date(value);
+      const today = new Date();
+
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+
+      setFormData((p) => ({ ...p, dob: value, age }));
+    } else {
+      setFormData((p) => ({ ...p, [name]: value }));
+    }
+  };
+
+  // ✅ photo to base64 (works on mobile + PC)
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData((p) => ({ ...p, photo: reader.result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // ✅ auto save draft (so mobile refresh / navigation lo data pothadu)
+  useEffect(() => {
+    localStorage.setItem("matrimony_draft", JSON.stringify(formData));
+  }, [formData]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    navigate("/preview", { state: formData });
+  };
+
   return (
-    <>
-      <Header />
+    <div className="page-fade min-h-screen bg-gradient-to-r from-pink-200 via-rose-100 to-purple-200 flex items-center justify-center py-12 px-4">
+      <div className="card-glass p-10 w-full max-w-5xl">
+        <h2 className="text-4xl font-extrabold text-center text-pink-600 mb-8">
+          💖 Create Your Matrimony Profile
+        </h2>
 
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-pink-500 via-red-500 to-orange-500 px-4">
-        <div className="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-md">
-
-          <h2 className="text-3xl font-bold text-center text-pink-600 mb-6">
-            Register 💍
-          </h2>
-
-          <form className="space-y-4">
-            
-            <input
-              type="text"
-              placeholder="Full Name"
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 outline-none"
+        {/* ✅ photo preview */}
+        {formData.photo && (
+          <div className="flex justify-center mb-6">
+            <img
+              src={formData.photo}
+              alt="preview"
+              className="w-24 h-24 rounded-full object-cover border-4 border-pink-500 shadow-lg"
+              onError={(e) => (e.currentTarget.style.display = "none")}
             />
+          </div>
+        )}
 
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Input name="name" placeholder="Full Name" value={formData.name} onChange={handleChange} />
+          <Select name="gender" value={formData.gender} options={["Male", "Female"]} onChange={handleChange} />
+
+          <Input type="date" name="dob" value={formData.dob} onChange={handleChange} />
+
+          {/* Age readonly */}
+          <input
+            type="text"
+            value={formData.age || ""}
+            readOnly
+            placeholder="Age"
+            className="input-soft bg-gray-100"
+          />
+
+          <Input name="height" placeholder="Height (5'8)" value={formData.height} onChange={handleChange} />
+          <Select
+            name="maritalStatus"
+            value={formData.maritalStatus}
+            options={["Never Married", "Divorced", "Widowed"]}
+            onChange={handleChange}
+          />
+
+          <Input name="motherTongue" placeholder="Mother Tongue" value={formData.motherTongue} onChange={handleChange} />
+          <Input name="religion" placeholder="Religion" value={formData.religion} onChange={handleChange} />
+          <Input name="caste" placeholder="Caste" value={formData.caste} onChange={handleChange} />
+          <Input name="subCaste" placeholder="Sub-Caste" value={formData.subCaste} onChange={handleChange} />
+          <Input name="education" placeholder="Education" value={formData.education} onChange={handleChange} />
+          <Input name="occupation" placeholder="Occupation" value={formData.occupation} onChange={handleChange} />
+          <Input name="income" placeholder="Annual Income" value={formData.income} onChange={handleChange} />
+          <Input name="country" placeholder="Country" value={formData.country} onChange={handleChange} />
+          <Input name="state" placeholder="State" value={formData.state} onChange={handleChange} />
+          <Input name="city" placeholder="City" value={formData.city} onChange={handleChange} />
+
+          <Input
+            type="tel"
+            name="phone"
+            placeholder="Phone Number"
+            value={formData.phone}
+            onChange={handleChange}
+          />
+
+          <Input name="fatherName" placeholder="Father Name" value={formData.fatherName} onChange={handleChange} />
+          <Input name="motherName" placeholder="Mother Name" value={formData.motherName} onChange={handleChange} />
+          <Input name="siblings" placeholder="Number of Siblings" value={formData.siblings} onChange={handleChange} />
+
+          {/* ✅ photo upload */}
+          <div>
+            <label className="block text-sm font-semibold mb-1">Profile Photo</label>
             <input
-              type="email"
-              placeholder="Email"
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 outline-none"
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="input-soft"
             />
+          </div>
 
-            <input
-              type="password"
-              placeholder="Password"
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 outline-none"
-            />
+          <textarea
+            name="about"
+            placeholder="About Me"
+            className="input-soft md:col-span-2"
+            rows="3"
+            value={formData.about}
+            onChange={handleChange}
+          />
 
-            <button
-              type="submit"
-              className="w-full bg-pink-600 text-white py-2 rounded-lg hover:bg-pink-700 transition"
-            >
-              Create Account
-            </button>
-          </form>
+          <input
+            type="email"
+            name="email"
+            placeholder="Email (only @gmail.com)"
+            value={formData.email}
+            onChange={handleChange}
+            className="input-soft"
+            pattern="^[a-zA-Z0-9._%+-]+@gmail\.com$"
+            title="Only Gmail addresses are allowed"
+            required
+          />
 
-        </div>
+          <Input
+            type="password"
+            name="password"
+            placeholder="Password"
+            value={formData.password}
+            onChange={handleChange}
+          />
+
+          <button type="submit" className="btn-primary md:col-span-2 w-full">
+            Preview Profile ✅
+          </button>
+        </form>
       </div>
-
-      <Footer />
-    </>
+    </div>
   );
 };
+
+const Input = ({ type = "text", name, placeholder, value, onChange }) => (
+  <input
+    type={type}
+    name={name}
+    placeholder={placeholder}
+    value={value}
+    onChange={onChange}
+    className="input-soft"
+    required
+  />
+);
+
+const Select = ({ name, value, options, onChange }) => (
+  <select name={name} value={value} onChange={onChange} className="input-soft" required>
+    <option value="">Select</option>
+    {options.map((opt) => (
+      <option key={opt} value={opt}>
+        {opt}
+      </option>
+    ))}
+  </select>
+);
 
 export default Register;

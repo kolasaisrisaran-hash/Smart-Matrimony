@@ -1,0 +1,139 @@
+import React, { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
+import Loader from "../components/Loader";
+
+const getApiBase = () => {
+  const host = window.location.hostname;
+  return host === "localhost" ? "http://localhost:5000" : `http://${host}:5000`;
+};
+
+const ProfilePreview = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const API_BASE = getApiBase();
+
+  const data =
+    location.state ||
+    JSON.parse(localStorage.getItem("matrimony_draft") || "null") ||
+    {};
+
+  const [saving, setSaving] = useState(false);
+
+  // ✅ if user already exists (logged_user has _id) => EDIT MODE
+  const loggedUser = JSON.parse(localStorage.getItem("logged_user") || "null");
+  const isEdit = Boolean(loggedUser?._id);
+
+  const handleConfirm = async () => {
+    try {
+      setSaving(true);
+
+      let res;
+
+      if (isEdit) {
+        // ✅ UPDATE existing user (no register again)
+        res = await axios.patch(`${API_BASE}/api/profiles/${loggedUser._id}`, {
+          ...data,
+          // ❌ don't send password in edit update
+          password: undefined,
+          passwordHash: undefined,
+        });
+        alert("Profile updated ✅");
+
+        // backend returns {message,user}
+        const updatedUser = res.data.user;
+        localStorage.setItem("logged_user", JSON.stringify(updatedUser));
+        localStorage.setItem("matrimony_profile", JSON.stringify(updatedUser));
+      } else {
+        // ✅ NEW REGISTER
+        res = await axios.post(`${API_BASE}/api/register`, {
+          ...data,
+          password: data.password,
+        });
+
+        alert("Registered in MongoDB ✅");
+        localStorage.setItem("matrimony_profile", JSON.stringify(res.data.user));
+        localStorage.setItem("logged_user", JSON.stringify(res.data.user));
+      }
+
+      localStorage.removeItem("matrimony_draft");
+      navigate("/dashboard");
+    } catch (err) {
+      alert(err?.response?.data?.message || err?.message || "Save failed ❌");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="page-fade min-h-screen flex items-center justify-center bg-gradient-to-r from-pink-200 to-purple-200 px-4 py-10">
+      <div className="card-glass p-8 md:p-10 w-full max-w-4xl">
+        <h2 className="text-3xl md:text-4xl font-extrabold text-center text-pink-600 mb-8">
+          💖 Profile Preview
+        </h2>
+
+        {Object.keys(data).length === 0 ? (
+          <p className="text-center text-gray-700">No Profile Data Found.</p>
+        ) : (
+          <>
+            {data.photo && (
+              <div className="flex justify-center mb-8">
+                <img
+                  src={data.photo}
+                  alt="Profile"
+                  className="w-32 h-32 rounded-full object-cover border-4 border-pink-500 shadow-lg"
+                  onError={(e) => (e.currentTarget.style.display = "none")}
+                />
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-gray-700">
+              <Info label="Name" value={data.name} />
+              <Info label="Email" value={data.email} />
+              <Info label="Phone" value={data.phone} />
+              <Info label="City" value={data.city} />
+              <Info label="Gender" value={data.gender} />
+              <Info label="Age" value={data.age} />
+              <Info label="Religion" value={data.religion} />
+            </div>
+
+            <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={() =>
+                  navigate("/register", { state: { mode: "edit", data } })
+                }
+                className="btn-outline w-full"
+                disabled={saving}
+              >
+                ✏️ Edit Profile
+              </button>
+
+              <button
+                onClick={handleConfirm}
+                className="btn-primary w-full"
+                disabled={saving}
+              >
+                {saving ? (
+                  <Loader text="Saving..." />
+                ) : isEdit ? (
+                  "✅ Confirm & Update"
+                ) : (
+                  "✅ Confirm & Register"
+                )}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const Info = ({ label, value }) => (
+  <div className="bg-white/70 border border-pink-100 rounded-xl p-3">
+    <p className="text-sm text-pink-700 font-semibold">{label}</p>
+    <p className="text-gray-800">{value || "-"}</p>
+  </div>
+);
+
+export default ProfilePreview;

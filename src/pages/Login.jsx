@@ -1,69 +1,97 @@
-import React from "react";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { loginSuccess } from "../redux/authSlice";
+import axios from "axios";
+import Loader from "../components/Loader";
+
+const getApiBase = () => {
+  const host = window.location.hostname;
+  return host === "localhost" ? "http://localhost:5000" : `http://${host}:5000`;
+};
 
 const Login = () => {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const API_BASE = getApiBase();
+
+  const isAuth = useSelector((state) => state.auth.isAuthenticated);
+
+  useEffect(() => {
+    if (isAuth) navigate("/dashboard", { replace: true });
+  }, [isAuth, navigate]);
+
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+
+      const res = await axios.post(`${API_BASE}/api/login`, {
+        email: form.email.trim(),
+        password: form.password,
+      });
+
+      localStorage.setItem("logged_user", JSON.stringify(res.data.user));
+      dispatch(loginSuccess(res.data.user));
+
+      navigate("/dashboard", { replace: true });
+    } catch (err) {
+      alert(err?.response?.data?.message || err?.message || "Login failed ❌");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <>
-      <Header />
+    <div className="page-fade min-h-screen flex items-center justify-center bg-gradient-to-r from-pink-200 to-purple-200 px-4">
+      <div className="card-glass p-8 w-full max-w-md">
+        <h2 className="text-3xl font-extrabold text-center text-pink-600 mb-6">
+          Login 💖
+        </h2>
 
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-pink-500 via-red-500 to-orange-500 px-4">
-        <div className="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-md">
-          
-          <h2 className="text-3xl font-bold text-center text-pink-600 mb-6">
-            Login 💍
-          </h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="email"
+            name="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={handleChange}
+            className="input-soft"
+            required
+          />
 
-          <form className="space-y-5">
-            {/* Email */}
-            <div>
-              <label className="block mb-2 font-medium">Email</label>
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
-              />
-            </div>
+          <input
+            type="password"
+            name="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={handleChange}
+            className="input-soft"
+            required
+          />
 
-            {/* Password */}
-            <div>
-              <label className="block mb-2 font-medium">Password</label>
-              <input
-                type="password"
-                placeholder="Enter your password"
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
-              />
-            </div>
+          <button type="submit" className="btn-primary w-full" disabled={loading}>
+            {loading ? <Loader text="Logging in..." /> : "Login"}
+          </button>
 
-            {/* Forgot Password */}
-            <div className="text-right text-sm">
-              <a href="#" className="text-pink-600 hover:underline">
-                Forgot Password?
-              </a>
-            </div>
-
-            {/* Button */}
-            <button
-              type="submit"
-              className="w-full bg-pink-600 text-white py-2 rounded-lg hover:bg-pink-700 transition duration-300"
-            >
-              Login
-            </button>
-          </form>
-
-          {/* Register Link */}
-          <p className="text-center mt-6 text-sm">
-            Don’t have an account?{" "}
-            <Link to="/register" className="text-pink-600 font-semibold hover:underline">
-              Register
-            </Link>
-          </p>
-        </div>
+          <button
+            type="button"
+            onClick={() => navigate("/register")}
+            className="btn-outline w-full"
+            disabled={loading}
+          >
+            Create Profile
+          </button>
+        </form>
       </div>
-
-      <Footer />
-    </>
+    </div>
   );
 };
 
