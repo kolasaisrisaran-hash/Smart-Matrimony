@@ -3,15 +3,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Loader from "../components/Loader";
 
-const getApiBase = () => {
-  const host = window.location.hostname;
-  return host === "localhost" ? "http://localhost:5000" : `http://${host}:5000`;
-};
+// ✅ Use Vercel env (Production) OR localhost (dev)
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const MatchProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const API_BASE = getApiBase();
 
   const me = JSON.parse(localStorage.getItem("logged_user") || "null");
 
@@ -25,7 +22,7 @@ const MatchProfile = () => {
       const res = await axios.get(`${API_BASE}/api/profiles/${id}`);
       setP(res.data);
     } catch (err) {
-      alert("Profile not found ❌");
+      alert(err?.response?.data?.message || "Profile not found ❌");
       navigate("/matches");
     } finally {
       setLoading(false);
@@ -73,7 +70,9 @@ const MatchProfile = () => {
     <div className="page-fade min-h-screen bg-gradient-to-r from-pink-200 to-purple-200 px-4 py-10">
       <div className="card-glass p-8 w-full max-w-4xl mx-auto">
         <div className="flex items-center justify-between gap-3 mb-6">
-          <h2 className="text-3xl font-extrabold text-pink-600">👤 Match Profile</h2>
+          <h2 className="text-3xl font-extrabold text-pink-600">
+            👤 Match Profile
+          </h2>
           <button onClick={() => navigate("/matches")} className="btn-outline">
             ⬅ Back
           </button>
@@ -88,6 +87,7 @@ const MatchProfile = () => {
                   src={p.photo}
                   alt="profile"
                   className="w-32 h-32 mx-auto rounded-full object-cover border-4 border-pink-500 shadow-lg"
+                  onError={(e) => (e.currentTarget.style.display = "none")}
                 />
               ) : (
                 <div className="w-32 h-32 mx-auto rounded-full bg-pink-100 border-4 border-pink-300 flex items-center justify-center text-pink-600 text-4xl font-extrabold">
@@ -95,7 +95,9 @@ const MatchProfile = () => {
                 </div>
               )}
 
-              <h3 className="mt-4 text-xl font-extrabold text-gray-900">{p.name}</h3>
+              <h3 className="mt-4 text-xl font-extrabold text-gray-900">
+                {p.name}
+              </h3>
               <p className="text-gray-700">
                 {p.age ? `${p.age} yrs` : "-"} • {p.city || "-"}
               </p>
@@ -130,7 +132,9 @@ const MatchProfile = () => {
 
             {p.about && (
               <div className="mt-6">
-                <h3 className="text-lg font-extrabold text-pink-700 mb-2">About</h3>
+                <h3 className="text-lg font-extrabold text-pink-700 mb-2">
+                  About
+                </h3>
                 <div className="bg-white/70 border border-pink-100 rounded-xl p-4">
                   <p className="text-gray-800">{p.about}</p>
                 </div>
