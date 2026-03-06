@@ -2,13 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Loader from "../components/Loader";
 
-const getApiBase = () => {
-  const host = window.location.hostname;
-  return host === "localhost" ? "http://localhost:5000" : `http://${host}:5000`;
-};
+// ✅ Use Vercel env (Production) OR localhost (dev)
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const Interests = () => {
-  const API_BASE = getApiBase();
   const user = JSON.parse(localStorage.getItem("logged_user") || "null");
 
   const [tab, setTab] = useState("inbox"); // inbox | sent | accepted
@@ -26,7 +23,7 @@ const Interests = () => {
       setInbox(inb.data || []);
       setSent(snt.data || []);
     } catch (err) {
-      alert("Failed to load interests ❌");
+      alert(err?.response?.data?.message || "Failed to load interests ❌");
     } finally {
       setLoading(false);
     }
@@ -52,27 +49,20 @@ const Interests = () => {
   );
 
   const acceptedList = useMemo(() => {
-    // ✅ accepted from inbox -> matched person is fromUserId
     const a1 = (inbox || [])
       .filter((it) => it.status === "accepted")
       .map((it) => ({
         interestId: it._id,
         person: it.fromUserId,
-        side: "inbox",
-        status: it.status,
       }));
 
-    // ✅ accepted from sent -> matched person is toUserId
     const a2 = (sent || [])
       .filter((it) => it.status === "accepted")
       .map((it) => ({
         interestId: it._id,
         person: it.toUserId,
-        side: "sent",
-        status: it.status,
       }));
 
-    // ✅ merge + unique by person._id
     const map = new Map();
     [...a1, ...a2].forEach((x) => {
       const id = x.person?._id;
@@ -87,7 +77,9 @@ const Interests = () => {
       <div className="max-w-5xl mx-auto card-glass p-6 md:p-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-3xl font-extrabold text-pink-600">💌 Interests</h2>
+            <h2 className="text-3xl font-extrabold text-pink-600">
+              💌 Interests
+            </h2>
             <p className="text-gray-700">Inbox, Sent & Accepted matches.</p>
           </div>
 
@@ -179,7 +171,10 @@ const Interests = () => {
         ) : (
           <div className="space-y-4">
             {acceptedList.map((m) => (
-              <AcceptedCard key={m.person?._id || m.interestId} person={m.person} />
+              <AcceptedCard
+                key={m.person?._id || m.interestId}
+                person={m.person}
+              />
             ))}
           </div>
         )}
@@ -206,9 +201,12 @@ const InterestCard = ({ user, rightButtons, subText }) => {
         )}
 
         <div className="min-w-0">
-          <p className="font-extrabold text-gray-900 truncate">{user?.name || "-"}</p>
+          <p className="font-extrabold text-gray-900 truncate">
+            {user?.name || "-"}
+          </p>
           <p className="text-sm text-gray-700 truncate">
-            {user?.age ? `${user.age} yrs` : "-"} • {user?.city || "-"} • {user?.gender || "-"}
+            {user?.age ? `${user.age} yrs` : "-"} • {user?.city || "-"} •{" "}
+            {user?.gender || "-"}
           </p>
           <p className="text-xs text-gray-600 truncate">{subText}</p>
         </div>
@@ -237,9 +235,12 @@ const AcceptedCard = ({ person }) => {
         )}
 
         <div className="min-w-0">
-          <p className="font-extrabold text-gray-900 truncate">{person?.name || "-"}</p>
+          <p className="font-extrabold text-gray-900 truncate">
+            {person?.name || "-"}
+          </p>
           <p className="text-sm text-gray-700 truncate">
-            {person?.age ? `${person.age} yrs` : "-"} • {person?.city || "-"} • {person?.gender || "-"}
+            {person?.age ? `${person.age} yrs` : "-"} • {person?.city || "-"} •{" "}
+            {person?.gender || "-"}
           </p>
         </div>
       </div>

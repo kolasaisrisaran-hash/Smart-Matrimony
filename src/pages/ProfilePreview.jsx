@@ -3,15 +3,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Loader from "../components/Loader";
 
-const getApiBase = () => {
-  const host = window.location.hostname;
-  return host === "localhost" ? "http://localhost:5000" : `http://${host}:5000`;
-};
+// ✅ Use Vercel env (Production) OR localhost (dev)
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const ProfilePreview = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const API_BASE = getApiBase();
 
   const data =
     location.state ||
@@ -28,25 +25,23 @@ const ProfilePreview = () => {
     try {
       setSaving(true);
 
-      let res;
-
       if (isEdit) {
         // ✅ UPDATE existing user (no register again)
-        res = await axios.patch(`${API_BASE}/api/profiles/${loggedUser._id}`, {
+        const res = await axios.patch(`${API_BASE}/api/profiles/${loggedUser._id}`, {
           ...data,
-          // ❌ don't send password in edit update
+          // ❌ don't send password fields
           password: undefined,
           passwordHash: undefined,
         });
+
         alert("Profile updated ✅");
 
-        // backend returns {message,user}
         const updatedUser = res.data.user;
         localStorage.setItem("logged_user", JSON.stringify(updatedUser));
         localStorage.setItem("matrimony_profile", JSON.stringify(updatedUser));
       } else {
         // ✅ NEW REGISTER
-        res = await axios.post(`${API_BASE}/api/register`, {
+        const res = await axios.post(`${API_BASE}/api/register`, {
           ...data,
           password: data.password,
         });
@@ -99,9 +94,7 @@ const ProfilePreview = () => {
 
             <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
-                onClick={() =>
-                  navigate("/register", { state: { mode: "edit", data } })
-                }
+                onClick={() => navigate("/register", { state: { mode: "edit", data } })}
                 className="btn-outline w-full"
                 disabled={saving}
               >

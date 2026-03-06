@@ -3,14 +3,11 @@ import axios from "axios";
 import Loader from "../components/Loader";
 import { useNavigate } from "react-router-dom";
 
-const getApiBase = () => {
-  const host = window.location.hostname;
-  return host === "localhost" ? "http://localhost:5000" : `http://${host}:5000`;
-};
+// ✅ Use Vercel env (Production) OR localhost (dev)
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const Matches = () => {
   const navigate = useNavigate();
-  const API_BASE = getApiBase();
 
   const loggedUser = JSON.parse(localStorage.getItem("logged_user") || "null");
 
@@ -36,14 +33,13 @@ const Matches = () => {
       const res = await axios.get(`${API_BASE}/api/profiles`);
       const list = res.data || [];
 
-      // ✅ remove logged user + blocked users
       const cleaned = list
         .filter((p) => (loggedUser?._id ? p._id !== loggedUser._id : true))
         .filter((p) => (p.status || "active") !== "blocked");
 
       setProfiles(cleaned);
     } catch (err) {
-      alert("Failed to load matches ❌");
+      alert(err?.response?.data?.message || "Failed to load matches ❌");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -76,42 +72,50 @@ const Matches = () => {
     const q = filters.q.trim().toLowerCase();
 
     let out = profiles.filter((p) => {
-      // gender
       if (filters.gender && p.gender !== filters.gender) return false;
 
-      // age
       const age = Number(p.age || 0);
       if (filters.minAge && age < Number(filters.minAge)) return false;
       if (filters.maxAge && age > Number(filters.maxAge)) return false;
 
-      // city/religion/caste
-      if (filters.city && !(p.city || "").toLowerCase().includes(filters.city.toLowerCase()))
+      if (
+        filters.city &&
+        !(p.city || "").toLowerCase().includes(filters.city.toLowerCase())
+      )
         return false;
 
-      if (filters.religion && !(p.religion || "").toLowerCase().includes(filters.religion.toLowerCase()))
+      if (
+        filters.religion &&
+        !(p.religion || "")
+          .toLowerCase()
+          .includes(filters.religion.toLowerCase())
+      )
         return false;
 
-      if (filters.caste && !(p.caste || "").toLowerCase().includes(filters.caste.toLowerCase()))
+      if (
+        filters.caste &&
+        !(p.caste || "").toLowerCase().includes(filters.caste.toLowerCase())
+      )
         return false;
 
-      // search
       if (q) {
-        const hay = `${p.name || ""} ${p.city || ""} ${p.religion || ""} ${p.caste || ""} ${
-          p.education || ""
-        } ${p.occupation || ""}`.toLowerCase();
+        const hay = `${p.name || ""} ${p.city || ""} ${p.religion || ""} ${
+          p.caste || ""
+        } ${p.education || ""} ${p.occupation || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
 
       return true;
     });
 
-    // sort
     if (filters.sort === "ageAsc")
       out.sort((a, b) => Number(a.age || 0) - Number(b.age || 0));
     if (filters.sort === "ageDesc")
       out.sort((a, b) => Number(b.age || 0) - Number(a.age || 0));
     if (filters.sort === "nameAsc")
-      out.sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+      out.sort((a, b) =>
+        String(a.name || "").localeCompare(String(b.name || ""))
+      );
 
     return out;
   }, [profiles, filters]);
@@ -119,11 +123,12 @@ const Matches = () => {
   return (
     <div className="page-fade min-h-screen bg-gradient-to-r from-pink-200 to-purple-200 px-4 py-10">
       <div className="max-w-6xl mx-auto">
-        {/* Top header */}
         <div className="card-glass p-6 md:p-8 mb-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h2 className="text-3xl font-extrabold text-pink-600">💞 Matches</h2>
+              <h2 className="text-3xl font-extrabold text-pink-600">
+                💞 Matches
+              </h2>
               <p className="text-gray-700">
                 Find profiles using filters & search. Results:{" "}
                 <b>{filtered.length}</b>
@@ -146,9 +151,7 @@ const Matches = () => {
           </div>
         </div>
 
-        {/* Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Sidebar */}
           <aside className="lg:col-span-4">
             <div className="card-glass p-6 sticky top-24">
               <h3 className="text-xl font-extrabold text-pink-600 mb-4">
@@ -239,7 +242,6 @@ const Matches = () => {
             </div>
           </aside>
 
-          {/* Results */}
           <main className="lg:col-span-8">
             {loading ? (
               <div className="card-glass p-10 flex justify-center">
@@ -272,7 +274,6 @@ const ListCard = ({ p, onView }) => {
   return (
     <div className="card-glass p-5 hover:scale-[1.01] transition">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        {/* Avatar */}
         <div className="flex items-center gap-3 min-w-0">
           {p.photo ? (
             <img
@@ -298,7 +299,6 @@ const ListCard = ({ p, onView }) => {
           </div>
         </div>
 
-        {/* Details */}
         <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-2">
           <Mini label="Religion" value={p.religion} />
           <Mini label="Caste" value={p.caste} />
@@ -306,7 +306,6 @@ const ListCard = ({ p, onView }) => {
           <Mini label="Job" value={p.occupation} />
         </div>
 
-        {/* Action */}
         <div className="sm:ml-auto">
           <button onClick={onView} className="btn-primary w-full sm:w-auto">
             View Profile

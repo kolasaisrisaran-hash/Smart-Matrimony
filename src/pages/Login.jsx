@@ -5,15 +5,12 @@ import { loginSuccess } from "../redux/authSlice";
 import axios from "axios";
 import Loader from "../components/Loader";
 
-const getApiBase = () => {
-  const host = window.location.hostname;
-  return host === "localhost" ? "http://localhost:5000" : `http://${host}:5000`;
-};
+// ✅ Use Vercel env (Production) OR localhost (dev)
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const Login = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const API_BASE = getApiBase();
 
   const isAuth = useSelector((state) => state.auth.isAuthenticated);
 
@@ -77,7 +74,11 @@ const Login = () => {
             required
           />
 
-          <button type="submit" className="btn-primary w-full" disabled={loading}>
+          <button
+            type="submit"
+            className="btn-primary w-full"
+            disabled={loading}
+          >
             {loading ? <Loader text="Logging in..." /> : "Login"}
           </button>
 
