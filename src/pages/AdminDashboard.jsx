@@ -2,17 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Loader from "../components/Loader";
-
-// ✅ Works for localhost + vercel (VITE_API_URL set in Vercel)
-const getApiBase = () => {
-  return import.meta.env.VITE_API_URL
-    ? import.meta.env.VITE_API_URL.replace(/\/$/, "")
-    : "http://localhost:5000";
-};
+import { API_BASE } from "../utils/api";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const API_BASE = getApiBase();
 
   const admin = JSON.parse(localStorage.getItem("logged_user") || "null");
 
@@ -26,10 +19,9 @@ const AdminDashboard = () => {
       isRefresh ? setRefreshing(true) : setLoading(true);
 
       const res = await axios.get(`${API_BASE}/api/profiles`);
-      const list = res.data || [];
-      setUsers(list);
+      setUsers(res.data || []);
     } catch (err) {
-      alert("Failed to load users ❌");
+      alert(err?.response?.data?.message || "Failed to load users ❌");
       console.log(err);
     } finally {
       setLoading(false);
@@ -80,7 +72,6 @@ const AdminDashboard = () => {
   return (
     <div className="page-fade min-h-screen bg-gradient-to-r from-pink-200 to-purple-200 px-4 py-10">
       <div className="max-w-6xl mx-auto card-glass p-6 md:p-8">
-        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h2 className="text-4xl font-extrabold text-pink-600">🛡 Admin Dashboard</h2>
@@ -90,7 +81,11 @@ const AdminDashboard = () => {
           </div>
 
           <div className="flex gap-3">
-            <button className="btn-outline" onClick={() => loadUsers(true)} disabled={refreshing}>
+            <button
+              className="btn-outline"
+              onClick={() => loadUsers(true)}
+              disabled={refreshing}
+            >
               {refreshing ? "Refreshing..." : "🔄 Refresh"}
             </button>
 
@@ -107,7 +102,6 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Search + stats */}
         <div className="mt-6 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
           <div className="md:col-span-3 bg-white/60 border border-pink-100 rounded-2xl p-4">
             <p className="text-gray-900 font-extrabold">Total Users: {users.length}</p>
@@ -126,19 +120,22 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* List */}
         <div className="mt-6">
           {loading ? (
             <div className="py-16 flex justify-center">
               <Loader text="Loading users..." />
             </div>
           ) : filtered.length === 0 ? (
-            <p className="text-center text-gray-700 font-semibold py-10">No users found.</p>
+            <p className="text-center text-gray-700 font-semibold py-10">
+              No users found.
+            </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filtered.map((u) => (
-                <div key={u._id} className="bg-white/70 border border-pink-100 rounded-2xl p-5">
-                  {/* Top */}
+                <div
+                  key={u._id}
+                  className="bg-white/70 border border-pink-100 rounded-2xl p-5"
+                >
                   <div className="flex items-center gap-3">
                     {u.photo ? (
                       <img
@@ -154,13 +151,17 @@ const AdminDashboard = () => {
                     )}
 
                     <div className="min-w-0">
-                      <p className="text-lg font-extrabold text-gray-900 truncate">{u.name || "-"}</p>
+                      <p className="text-lg font-extrabold text-gray-900 truncate">
+                        {u.name || "-"}
+                      </p>
                       <p className="text-gray-700 truncate">{u.email || "-"}</p>
                       <p className="text-sm">
                         Status:{" "}
                         <span
                           className={`font-bold ${
-                            (u.status || "active") === "blocked" ? "text-red-600" : "text-green-700"
+                            (u.status || "active") === "blocked"
+                              ? "text-red-600"
+                              : "text-green-700"
                           }`}
                         >
                           {u.status || "active"}
@@ -169,16 +170,24 @@ const AdminDashboard = () => {
                     </div>
                   </div>
 
-                  {/* Info */}
                   <div className="mt-4 text-sm text-gray-800 space-y-1">
-                    <p><b>Phone:</b> {u.phone || "-"}</p>
-                    <p><b>City:</b> {u.city || "-"}</p>
-                    <p><b>Gender:</b> {u.gender || "-"}</p>
-                    <p><b>Age:</b> {u.age || "-"}</p>
-                    <p><b>Religion:</b> {u.religion || "-"}</p>
+                    <p>
+                      <b>Phone:</b> {u.phone || "-"}
+                    </p>
+                    <p>
+                      <b>City:</b> {u.city || "-"}
+                    </p>
+                    <p>
+                      <b>Gender:</b> {u.gender || "-"}
+                    </p>
+                    <p>
+                      <b>Age:</b> {u.age || "-"}
+                    </p>
+                    <p>
+                      <b>Religion:</b> {u.religion || "-"}
+                    </p>
                   </div>
 
-                  {/* ✅ ACTION BUTTONS (idhe missing earlier) */}
                   <div className="mt-5 grid grid-cols-2 gap-3">
                     <button
                       className="btn-outline"
