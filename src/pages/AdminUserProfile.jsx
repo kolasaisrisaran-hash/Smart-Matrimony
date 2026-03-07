@@ -1,16 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-
-const getApiBase = () => {
-  const host = window.location.hostname;
-  return host === "localhost" ? "http://localhost:5000" : `http://${host}:5000`;
-};
+import { API_BASE } from "../utils/api";
 
 const AdminUserProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const API_BASE = getApiBase();
 
   const [p, setP] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,6 +17,7 @@ const AdminUserProfile = () => {
       setP(res.data);
     } catch (err) {
       alert(err?.response?.data?.message || "Failed to load profile ❌");
+      setP(null);
     } finally {
       setLoading(false);
     }
@@ -43,7 +39,12 @@ const AdminUserProfile = () => {
   if (!p) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-pink-200 to-purple-200">
-        <p className="text-gray-700 font-semibold">No profile found.</p>
+        <div className="card-glass p-6 text-center">
+          <p className="text-gray-700 font-semibold">No profile found.</p>
+          <button onClick={() => navigate("/admin")} className="btn-outline mt-4">
+            ⬅ Back to Admin
+          </button>
+        </div>
       </div>
     );
   }
@@ -70,15 +71,16 @@ const AdminUserProfile = () => {
           </div>
         </div>
 
-        {p.photo && (
+        {p.photo ? (
           <div className="flex justify-center mb-6">
             <img
               src={p.photo}
               alt="profile"
               className="w-32 h-32 rounded-full object-cover border-4 border-pink-500 shadow-lg"
+              onError={(e) => (e.currentTarget.style.display = "none")}
             />
           </div>
-        )}
+        ) : null}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Info label="Name" value={p.name} />

@@ -1,16 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-
-const getApiBase = () => {
-  const host = window.location.hostname;
-  return host === "localhost" ? "http://localhost:5000" : `http://${host}:5000`;
-};
+import { API_BASE } from "../utils/api";
 
 const AdminEditUser = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const API_BASE = getApiBase();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -72,6 +67,7 @@ const AdminEditUser = () => {
     e.preventDefault();
     try {
       setSaving(true);
+
       await axios.patch(`${API_BASE}/api/profiles/${id}`, {
         ...form,
         age: form.age === "" ? "" : Number(form.age),
@@ -109,7 +105,10 @@ const AdminEditUser = () => {
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form
+          onSubmit={handleSave}
+          className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        >
           <input
             className="input-soft"
             name="name"
