@@ -1,11 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const Register = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isEdit = useMemo(() => location.state?.mode === "edit", [location.state]);
   const editData = location.state?.data || null;
 
   const [showPassword, setShowPassword] = useState(false);
@@ -40,6 +39,7 @@ const Register = () => {
       }
   );
 
+  // ✅ auto age calculation
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -57,6 +57,7 @@ const Register = () => {
     }
   };
 
+  // ✅ photo to base64
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -68,24 +69,21 @@ const Register = () => {
     reader.readAsDataURL(file);
   };
 
+  // ✅ auto save draft
   useEffect(() => {
     localStorage.setItem("matrimony_draft", JSON.stringify(formData));
   }, [formData]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
-    const payload = { ...formData };
-    if (isEdit && !payload.password) delete payload.password;
-
-    navigate("/preview", { state: payload });
+    navigate("/preview", { state: formData });
   };
 
   return (
     <div className="page-fade min-h-screen bg-gradient-to-r from-pink-200 via-rose-100 to-purple-200 flex items-center justify-center py-12 px-4">
       <div className="card-glass p-10 w-full max-w-5xl">
         <h2 className="text-4xl font-extrabold text-center text-pink-600 mb-8">
-          💖 {isEdit ? "Edit Your Profile" : "Create Your Matrimony Profile"}
+          💖 Create Your Matrimony Profile
         </h2>
 
         {formData.photo && (
@@ -109,6 +107,7 @@ const Register = () => {
             value={formData.name}
             onChange={handleChange}
           />
+
           <Select
             name="gender"
             value={formData.gender}
@@ -132,6 +131,7 @@ const Register = () => {
             value={formData.height}
             onChange={handleChange}
           />
+
           <Select
             name="maritalStatus"
             value={formData.maritalStatus}
@@ -145,45 +145,69 @@ const Register = () => {
             value={formData.motherTongue}
             onChange={handleChange}
           />
+
           <Input
             name="religion"
             placeholder="Religion"
             value={formData.religion}
             onChange={handleChange}
           />
-          <Input name="caste" placeholder="Caste" value={formData.caste} onChange={handleChange} />
+
+          <Input
+            name="caste"
+            placeholder="Caste"
+            value={formData.caste}
+            onChange={handleChange}
+          />
+
           <Input
             name="subCaste"
             placeholder="Sub-Caste"
             value={formData.subCaste}
             onChange={handleChange}
           />
+
           <Input
             name="education"
             placeholder="Education"
             value={formData.education}
             onChange={handleChange}
           />
+
           <Input
             name="occupation"
             placeholder="Occupation"
             value={formData.occupation}
             onChange={handleChange}
           />
+
           <Input
             name="income"
             placeholder="Annual Income"
             value={formData.income}
             onChange={handleChange}
           />
+
           <Input
             name="country"
             placeholder="Country"
             value={formData.country}
             onChange={handleChange}
           />
-          <Input name="state" placeholder="State" value={formData.state} onChange={handleChange} />
-          <Input name="city" placeholder="City" value={formData.city} onChange={handleChange} />
+
+          <Input
+            name="state"
+            placeholder="State"
+            value={formData.state}
+            onChange={handleChange}
+          />
+
+          <Input
+            name="city"
+            placeholder="City"
+            value={formData.city}
+            onChange={handleChange}
+          />
 
           <Input
             type="tel"
@@ -199,12 +223,14 @@ const Register = () => {
             value={formData.fatherName}
             onChange={handleChange}
           />
+
           <Input
             name="motherName"
             placeholder="Mother Name"
             value={formData.motherName}
             onChange={handleChange}
           />
+
           <Input
             name="siblings"
             placeholder="Number of Siblings"
@@ -213,7 +239,9 @@ const Register = () => {
           />
 
           <div>
-            <label className="block text-sm font-semibold mb-1">Profile Photo</label>
+            <label className="block text-sm font-semibold mb-1">
+              Profile Photo
+            </label>
             <input
               type="file"
               accept="image/*"
@@ -243,21 +271,21 @@ const Register = () => {
             required
           />
 
-          {/* ✅ Password with show/hide */}
+          {/* ✅ Password with View / Hide */}
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
               name="password"
-              placeholder={isEdit ? "New Password (optional)" : "Password"}
+              placeholder="Password"
               value={formData.password}
               onChange={handleChange}
-              className="input-soft pr-16"
-              required={!isEdit}
+              className="input-soft pr-20"
+              required
             />
 
             <button
               type="button"
-              onClick={() => setShowPassword((p) => !p)}
+              onClick={() => setShowPassword((prev) => !prev)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-pink-600 hover:text-pink-700"
             >
               {showPassword ? "Hide" : "View"}
@@ -265,7 +293,7 @@ const Register = () => {
           </div>
 
           <button type="submit" className="btn-primary md:col-span-2 w-full">
-            {isEdit ? "Preview Update ✅" : "Preview Profile ✅"}
+            Preview Profile ✅
           </button>
         </form>
       </div>
@@ -273,14 +301,7 @@ const Register = () => {
   );
 };
 
-const Input = ({
-  type = "text",
-  name,
-  placeholder,
-  value,
-  onChange,
-  required = true,
-}) => (
+const Input = ({ type = "text", name, placeholder, value, onChange }) => (
   <input
     type={type}
     name={name}
@@ -288,7 +309,7 @@ const Input = ({
     value={value}
     onChange={onChange}
     className="input-soft"
-    required={required}
+    required
   />
 );
 
