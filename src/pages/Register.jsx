@@ -39,7 +39,6 @@ const Register = () => {
       }
   );
 
-  // ✅ auto age calculation
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -49,27 +48,38 @@ const Register = () => {
 
       let age = today.getFullYear() - birthDate.getFullYear();
       const m = today.getMonth() - birthDate.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
 
-      setFormData((p) => ({ ...p, dob: value, age }));
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        dob: value,
+        age: age > 0 ? age : "",
+      }));
     } else {
-      setFormData((p) => ({ ...p, [name]: value }));
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
     }
   };
 
-  // ✅ photo to base64
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      setFormData((p) => ({ ...p, photo: reader.result }));
+      setFormData((prev) => ({
+        ...prev,
+        photo: reader.result,
+      }));
     };
     reader.readAsDataURL(file);
   };
 
-  // ✅ auto save draft
   useEffect(() => {
     localStorage.setItem("matrimony_draft", JSON.stringify(formData));
   }, [formData]);
@@ -115,7 +125,12 @@ const Register = () => {
             onChange={handleChange}
           />
 
-          <Input type="date" name="dob" value={formData.dob} onChange={handleChange} />
+          <Input
+            type="date"
+            name="dob"
+            value={formData.dob}
+            onChange={handleChange}
+          />
 
           <input
             type="text"
@@ -127,7 +142,7 @@ const Register = () => {
 
           <Input
             name="height"
-            placeholder="Height (5'8)"
+            placeholder={`Height (5'8")`}
             value={formData.height}
             onChange={handleChange}
           />
@@ -271,22 +286,21 @@ const Register = () => {
             required
           />
 
-          {/* ✅ Password with View / Hide */}
-          <div className="relative">
+          <div className="relative w-full">
             <input
               type={showPassword ? "text" : "password"}
               name="password"
               placeholder="Password"
               value={formData.password}
               onChange={handleChange}
-              className="input-soft pr-20"
+              className="input-soft w-full pr-24 password-input"
               required
             />
 
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-pink-600 hover:text-pink-700"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-pink-600 hover:text-pink-700 z-10 bg-transparent border-none"
             >
               {showPassword ? "Hide" : "View"}
             </button>
