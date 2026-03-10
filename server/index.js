@@ -82,6 +82,32 @@ interestSchema.index({ fromUserId: 1, toUserId: 1 }, { unique: true });
 const Interest = mongoose.model("Interest", interestSchema);
 
 /* =========================
+   ✅ Message Schema
+========================= */
+const messageSchema = new mongoose.Schema(
+  {
+    sender: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Profile",
+      required: true,
+    },
+    receiver: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Profile",
+      required: true,
+    },
+    text: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+  },
+  { timestamps: true }
+);
+
+const Message = mongoose.model("Message", messageSchema);
+
+/* =========================
    ✅ Health
 ========================= */
 app.get("/", (req, res) => res.send("Backend is running ✅"));
@@ -95,10 +121,14 @@ app.post("/api/register", async (req, res) => {
   try {
     const { password, ...rest } = req.body;
 
-    if (!password) return res.status(400).json({ message: "Password required" });
+    if (!password) {
+      return res.status(400).json({ message: "Password required" });
+    }
 
     const exists = await Profile.findOne({ email: rest.email });
-    if (exists) return res.status(409).json({ message: "Email already exists" });
+    if (exists) {
+      return res.status(409).json({ message: "Email already exists" });
+    }
 
     const passwordHash = await bcrypt.hash(password, 10);
 
@@ -123,7 +153,9 @@ app.post("/api/login", async (req, res) => {
     const { email, password } = req.body;
 
     const userDoc = await Profile.findOne({ email });
-    if (!userDoc) return res.status(404).json({ message: "User not found" });
+    if (!userDoc) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     const status = userDoc.status || "active";
     if (status === "blocked") {
@@ -131,7 +163,9 @@ app.post("/api/login", async (req, res) => {
     }
 
     const ok = await bcrypt.compare(password, userDoc.passwordHash);
-    if (!ok) return res.status(401).json({ message: "Invalid password" });
+    if (!ok) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
 
     const user = userDoc.toObject();
     delete user.passwordHash;
@@ -152,10 +186,14 @@ app.post("/api/change-password", async (req, res) => {
     }
 
     const userDoc = await Profile.findOne({ email });
-    if (!userDoc) return res.status(404).json({ message: "User not found" });
+    if (!userDoc) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     const ok = await bcrypt.compare(oldPassword, userDoc.passwordHash);
-    if (!ok) return res.status(401).json({ message: "Old password wrong" });
+    if (!ok) {
+      return res.status(401).json({ message: "Old password wrong" });
+    }
 
     const newHash = await bcrypt.hash(newPassword, 10);
     userDoc.passwordHash = newHash;
@@ -173,8 +211,12 @@ app.post("/api/change-password", async (req, res) => {
 
 // ✅ Get all profiles
 app.get("/api/profiles", async (req, res) => {
-  const users = await Profile.find({}, { passwordHash: 0 });
-  res.json(users);
+  try {
+    const users = await Profile.find({}, { passwordHash: 0 });
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 // ✅ Get single profile by id
@@ -182,7 +224,11 @@ app.get("/api/profiles/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const user = await Profile.findById(id, { passwordHash: 0 });
-    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
     res.json(user);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -200,7 +246,9 @@ app.patch("/api/profiles/:id", async (req, res) => {
       projection: { passwordHash: 0 },
     });
 
-    if (!updated) return res.status(404).json({ message: "User not found" });
+    if (!updated) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     res.json({ message: "Profile updated ✅", user: updated });
   } catch (err) {
@@ -253,15 +301,25 @@ app.post("/api/interests/send", async (req, res) => {
     if (!fromUserId || !toUserId) {
       return res.status(400).json({ message: "fromUserId & toUserId required" });
     }
+
     if (fromUserId === toUserId) {
-      return res.status(400).json({ message: "You cannot send interest to yourself" });
+      return res
+        .status(400)
+        .json({ message: "You cannot send interest to yourself" });
     }
 
     const fromUser = await Profile.findById(fromUserId);
     const toUser = await Profile.findById(toUserId);
-    if (!fromUser || !toUser) return res.status(404).json({ message: "User not found" });
 
-    const interest = await Interest.create({ fromUserId, toUserId, status: "pending" });
+    if (!fromUser || !toUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const interest = await Interest.create({
+      fromUserId,
+      toUserId,
+      status: "pending",
+    });
 
     res.json({ message: "Interest sent ✅", interest });
   } catch (err) {
@@ -279,7 +337,10 @@ app.get("/api/interests/inbox/:userId", async (req, res) => {
 
     const list = await Interest.find({ toUserId: userId })
       .sort({ createdAt: -1 })
-      .populate("fromUserId", "name email phone city gender age religion caste photo");
+      .populate(
+        "fromUserId",
+        "name email phone city gender age religion caste photo"
+      );
 
     res.json(list);
   } catch (err) {
@@ -294,7 +355,10 @@ app.get("/api/interests/sent/:userId", async (req, res) => {
 
     const list = await Interest.find({ fromUserId: userId })
       .sort({ createdAt: -1 })
-      .populate("toUserId", "name email phone city gender age religion caste photo");
+      .populate(
+        "toUserId",
+        "name email phone city gender age religion caste photo"
+      );
 
     res.json(list);
   } catch (err) {
@@ -316,14 +380,114 @@ app.patch("/api/interests/:id", async (req, res) => {
       { status },
       { new: true }
     )
-      .populate("fromUserId", "name email phone city gender age religion caste photo")
-      .populate("toUserId", "name email phone city gender age religion caste photo");
+      .populate(
+        "fromUserId",
+        "name email phone city gender age religion caste photo"
+      )
+      .populate(
+        "toUserId",
+        "name email phone city gender age religion caste photo"
+      );
 
-    if (!updated) return res.status(404).json({ message: "Interest not found" });
+    if (!updated) {
+      return res.status(404).json({ message: "Interest not found" });
+    }
 
     res.json({ message: "Updated ✅", interest: updated });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+/* =========================
+   ✅ CHAT SYSTEM
+========================= */
+
+// ✅ Send message
+app.post("/api/messages/send", async (req, res) => {
+  try {
+    const { sender, receiver, text } = req.body;
+
+    if (!sender || !receiver || !text) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    if (sender === receiver) {
+      return res.status(400).json({ message: "You cannot message yourself" });
+    }
+
+    const senderUser = await Profile.findById(sender);
+    const receiverUser = await Profile.findById(receiver);
+
+    if (!senderUser || !receiverUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const isMatched = await Interest.findOne({
+      $or: [
+        { fromUserId: sender, toUserId: receiver, status: "accepted" },
+        { fromUserId: receiver, toUserId: sender, status: "accepted" },
+      ],
+    });
+
+    if (!isMatched) {
+      return res.status(403).json({
+        message: "Chat allowed only between accepted interests",
+      });
+    }
+
+    const newMessage = await Message.create({
+      sender,
+      receiver,
+      text: text.trim(),
+    });
+
+    res.status(201).json({
+      message: "Message sent successfully ✅",
+      data: newMessage,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to send message",
+      error: error.message,
+    });
+  }
+});
+
+// ✅ Get messages between two matched users
+app.get("/api/messages/:senderId/:receiverId", async (req, res) => {
+  try {
+    const { senderId, receiverId } = req.params;
+
+    const isMatched = await Interest.findOne({
+      $or: [
+        { fromUserId: senderId, toUserId: receiverId, status: "accepted" },
+        { fromUserId: receiverId, toUserId: senderId, status: "accepted" },
+      ],
+    });
+
+    if (!isMatched) {
+      return res.status(403).json({
+        message: "Chat allowed only between accepted interests",
+      });
+    }
+
+    const messages = await Message.find({
+      $or: [
+        { sender: senderId, receiver: receiverId },
+        { sender: receiverId, receiver: senderId },
+      ],
+    })
+      .sort({ createdAt: 1 })
+      .populate("sender", "name photo")
+      .populate("receiver", "name photo");
+
+    res.status(200).json(messages);
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to fetch messages",
+      error: error.message,
+    });
   }
 });
 
