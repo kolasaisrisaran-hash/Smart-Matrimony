@@ -112,7 +112,7 @@ const Chat = () => {
           uniqueMatched.find((u) => u._id === routeSelectedUser._id) ||
           routeSelectedUser;
 
-        fetchMessages(matchedRouteUser, true);
+        await openChat(matchedRouteUser);
       }
     } catch (error) {
       console.error("Failed to load matched users", error);
@@ -132,12 +132,19 @@ const Chat = () => {
       );
 
       setMessages(res.data || []);
-      await markMessagesAsSeen(otherUser._id);
-      await fetchUnreadCounts();
     } catch (error) {
       console.error("Failed to load messages", error);
       setMessages([]);
     }
+  };
+
+  const openChat = async (user) => {
+    if (!user?._id) return;
+
+    setSelectedUser(user);
+    await fetchMessages(user, false);
+    await markMessagesAsSeen(user._id);
+    await fetchUnreadCounts();
   };
 
   const handleSend = async () => {
@@ -183,7 +190,7 @@ const Chat = () => {
               {matchedUsers.map((user) => (
                 <button
                   key={user._id}
-                  onClick={() => fetchMessages(user, true)}
+                  onClick={() => openChat(user)}
                   className={`w-full text-left p-3 rounded-2xl border transition ${
                     selectedUser?._id === user._id
                       ? "border-pink-400 bg-pink-50"

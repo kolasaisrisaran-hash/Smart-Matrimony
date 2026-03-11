@@ -1,7 +1,10 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../redux/authSlice";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const Dashboard = () => {
   const dispatch = useDispatch();
@@ -10,6 +13,39 @@ const Dashboard = () => {
   const reduxUser = useSelector((state) => state.auth.user);
   const storedUser = JSON.parse(localStorage.getItem("logged_user") || "null");
   const user = reduxUser || storedUser;
+
+  const [totalUnread, setTotalUnread] = useState(0);
+
+  useEffect(() => {
+    if (user?._id) {
+      fetchUnreadCount();
+
+      const interval = setInterval(() => {
+        fetchUnreadCount();
+      }, 5000);
+
+      return () => clearInterval(interval);
+    }
+  }, [user?._id]);
+
+  const fetchUnreadCount = async () => {
+    try {
+      if (!user?._id) return;
+
+      const res = await axios.get(
+        `${API_BASE}/api/messages/unread/${user._id}`
+      );
+
+      const total = (res.data || []).reduce(
+        (sum, item) => sum + (item.count || 0),
+        0
+      );
+
+      setTotalUnread(total);
+    } catch (error) {
+      console.error("Failed to fetch unread count", error);
+    }
+  };
 
   if (!user) {
     return (
@@ -70,9 +106,16 @@ const Dashboard = () => {
         </div>
 
         <div className="mt-8 space-y-3">
-          {/* ✅ Matches */}
           <button onClick={() => navigate("/matches")} className="btn-primary w-full">
             💞 Open Matches
+          </button>
+
+          <button onClick={() => navigate("/interests")} className="btn-outline w-full">
+            ❤️ Interests
+          </button>
+
+          <button onClick={() => navigate("/chat")} className="btn-outline w-full">
+            {totalUnread > 0 ? `💬 Chats 🔴 ${totalUnread}` : "💬 Chats"}
           </button>
 
           <button onClick={handleEditProfile} className="btn-outline w-full">
