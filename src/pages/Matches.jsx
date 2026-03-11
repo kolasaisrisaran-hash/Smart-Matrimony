@@ -14,6 +14,7 @@ const Matches = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [profiles, setProfiles] = useState([]);
+  const [acceptedMatchIds, setAcceptedMatchIds] = useState([]);
 
   const [filters, setFilters] = useState({
     q: "",
@@ -23,21 +24,41 @@ const Matches = () => {
     city: "",
     religion: "",
     caste: "",
-    sort: "relevance", // relevance | ageAsc | ageDesc | nameAsc
+    sort: "relevance",
   });
 
   const loadProfiles = async (isRefresh = false) => {
     try {
       isRefresh ? setRefreshing(true) : setLoading(true);
 
-      const res = await axios.get(`${API_BASE}/api/profiles`);
-      const list = res.data || [];
+      const [profilesRes, inboxRes, sentRes] = await Promise.all([
+        axios.get(`${API_BASE}/api/profiles`),
+        loggedUser?._id
+          ? axios.get(`${API_BASE}/api/interests/inbox/${loggedUser._id}`)
+          : Promise.resolve({ data: [] }),
+        loggedUser?._id
+          ? axios.get(`${API_BASE}/api/interests/sent/${loggedUser._id}`)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      const list = profilesRes.data || [];
 
       const cleaned = list
         .filter((p) => (loggedUser?._id ? p._id !== loggedUser._id : true))
         .filter((p) => (p.status || "active") !== "blocked");
 
       setProfiles(cleaned);
+
+      const inboxAccepted = (inboxRes.data || [])
+        .filter((item) => item.status === "accepted")
+        .map((item) => item.fromUserId?._id || item.fromUserId);
+
+      const sentAccepted = (sentRes.data || [])
+        .filter((item) => item.status === "accepted")
+        .map((item) => item.toUserId?._id || item.toUserId);
+
+      const uniqueAcceptedIds = [...new Set([...inboxAccepted, ...sentAccepted])];
+      setAcceptedMatchIds(uniqueAcceptedIds);
     } catch (err) {
       alert(err?.response?.data?.message || "Failed to load matches ❌");
     } finally {
@@ -81,41 +102,48 @@ const Matches = () => {
       if (
         filters.city &&
         !(p.city || "").toLowerCase().includes(filters.city.toLowerCase())
-      )
+      ) {
         return false;
+      }
 
       if (
         filters.religion &&
-        !(p.religion || "")
-          .toLowerCase()
-          .includes(filters.religion.toLowerCase())
-      )
+        !(p.religion || "").toLowerCase().includes(filters.religion.toLowerCase())
+      ) {
         return false;
+      }
 
       if (
         filters.caste &&
         !(p.caste || "").toLowerCase().includes(filters.caste.toLowerCase())
-      )
+      ) {
         return false;
+      }
 
       if (q) {
         const hay = `${p.name || ""} ${p.city || ""} ${p.religion || ""} ${
           p.caste || ""
         } ${p.education || ""} ${p.occupation || ""}`.toLowerCase();
+
         if (!hay.includes(q)) return false;
       }
 
       return true;
     });
 
-    if (filters.sort === "ageAsc")
+    if (filters.sort === "ageAsc") {
       out.sort((a, b) => Number(a.age || 0) - Number(b.age || 0));
-    if (filters.sort === "ageDesc")
+    }
+
+    if (filters.sort === "ageDesc") {
       out.sort((a, b) => Number(b.age || 0) - Number(a.age || 0));
-    if (filters.sort === "nameAsc")
+    }
+
+    if (filters.sort === "nameAsc") {
       out.sort((a, b) =>
         String(a.name || "").localeCompare(String(b.name || ""))
       );
+    }
 
     return out;
   }, [profiles, filters]);
@@ -258,7 +286,11 @@ const Matches = () => {
                   <ListCard
                     key={p._id}
                     p={p}
+                    canMessage={acceptedMatchIds.includes(p._id)}
                     onView={() => navigate(`/matches/${p._id}`)}
+                    onMessage={() =>
+                      navigate("/chat", { state: { selectedUser: p } })
+                    }
                   />
                 ))}
               </div>
@@ -270,7 +302,7 @@ const Matches = () => {
   );
 };
 
-const ListCard = ({ p, onView }) => {
+const ListCard = ({ p, onView, onMessage, canMessage }) => {
   return (
     <div className="card-glass p-5 hover:scale-[1.01] transition">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -306,10 +338,16 @@ const ListCard = ({ p, onView }) => {
           <Mini label="Job" value={p.occupation} />
         </div>
 
-        <div className="sm:ml-auto">
+        <div className="sm:ml-auto flex flex-col sm:flex-row gap-2">
           <button onClick={onView} className="btn-primary w-full sm:w-auto">
             View Profile
           </button>
+
+          {canMessage && (
+            <button onClick={onMessage} className="btn-outline w-full sm:w-auto">
+              Message 💬
+            </button>
+          )}
         </div>
       </div>
 

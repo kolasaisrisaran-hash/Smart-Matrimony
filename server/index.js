@@ -76,7 +76,6 @@ const interestSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ prevent duplicate requests (same from -> to)
 interestSchema.index({ fromUserId: 1, toUserId: 1 }, { unique: true });
 
 const Interest = mongoose.model("Interest", interestSchema);
@@ -100,6 +99,10 @@ const messageSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+    },
+    seen: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }
@@ -440,6 +443,7 @@ app.post("/api/messages/send", async (req, res) => {
       sender,
       receiver,
       text: text.trim(),
+      seen: false,
     });
 
     res.status(201).json({
@@ -486,6 +490,64 @@ app.get("/api/messages/:senderId/:receiverId", async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: "Failed to fetch messages",
+      error: error.message,
+    });
+  }
+});
+
+// ✅ Mark messages as seen
+app.patch("/api/messages/seen", async (req, res) => {
+  try {
+    const { senderId, receiverId } = req.body;
+
+    if (!senderId || !receiverId) {
+      return res.status(400).json({ message: "senderId and receiverId required" });
+    }
+
+    await Message.updateMany(
+      {
+        sender: senderId,
+        receiver: receiverId,
+        seen: false,
+      },
+      {
+        $set: { seen: true },
+      }
+    );
+
+    res.json({ message: "Messages marked as seen ✅" });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to mark messages as seen",
+      error: error.message,
+    });
+  }
+});
+
+// ✅ Unread counts for a user
+app.get("/api/messages/unread/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const unread = await Message.aggregate([
+      {
+        $match: {
+          receiver: new mongoose.Types.ObjectId(userId),
+          seen: false,
+        },
+      },
+      {
+        $group: {
+          _id: "$sender",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    res.json(unread);
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to fetch unread counts",
       error: error.message,
     });
   }

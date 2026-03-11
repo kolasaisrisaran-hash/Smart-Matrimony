@@ -10,6 +10,7 @@ import ChangePassword from "./pages/ChangePassword";
 import Matches from "./pages/Matches";
 import MatchProfile from "./pages/MatchProfile";
 import Interests from "./pages/Interests";
+import Chat from "./pages/Chat";
 
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUserProfile from "./pages/AdminUserProfile";
@@ -58,12 +59,22 @@ function App() {
         }
       />
 
-      {/* ✅ Interests */}
+      {/* Interests */}
       <Route
         path="/interests"
         element={
           <ProtectedRoute>
             <Interests />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Chat */}
+      <Route
+        path="/chat"
+        element={
+          <ProtectedRoute>
+            <Chat />
           </ProtectedRoute>
         }
       />
