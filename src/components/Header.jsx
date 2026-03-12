@@ -26,11 +26,11 @@ const Header = () => {
 
   const handleLogout = () => {
     dispatch(logout());
+    localStorage.removeItem("logged_user");
     setPendingCount(0);
     navigate("/login");
   };
 
-  // ✅ Pending badge fetch
   useEffect(() => {
     let timer;
 
@@ -46,13 +46,13 @@ const Header = () => {
         const pending = list.filter((it) => it.status === "pending").length;
         setPendingCount(pending);
       } catch {
-        // ignore errors silently for header
+        // ignore header errors
       }
     };
 
     if (finalUser?._id) {
       loadPending();
-      timer = setInterval(loadPending, 10000); // every 10s
+      timer = setInterval(loadPending, 10000);
     } else {
       setPendingCount(0);
     }
@@ -63,8 +63,8 @@ const Header = () => {
   }, [API_BASE, finalUser?._id]);
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-pink-100">
-      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-pink-100 shadow-sm">
+      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
         <Link to="/home" className="font-extrabold text-xl text-pink-600">
           💍 Smart Matrimony
         </Link>
@@ -109,7 +109,6 @@ const Header = () => {
                 Matches
               </Link>
 
-              {/* ✅ Interests with Pending badge */}
               <Link
                 to="/interests"
                 className="relative px-3 py-2 rounded-lg text-gray-700 hover:bg-pink-50 transition"
@@ -132,7 +131,7 @@ const Header = () => {
               )}
 
               <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-full bg-pink-50 border border-pink-100">
-                <span className="text-sm font-semibold text-pink-700">
+                <span className="text-sm font-semibold text-pink-700 truncate max-w-[120px]">
                   {finalUser?.name || "User"}
                 </span>
               </div>

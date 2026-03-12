@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const Register = () => {
@@ -6,8 +6,77 @@ const Register = () => {
   const location = useLocation();
 
   const editData = location.state?.data || null;
-
   const [showPassword, setShowPassword] = useState(false);
+
+  const maxDob = new Date(
+    new Date().getFullYear() - 18,
+    new Date().getMonth(),
+    new Date().getDate()
+  )
+    .toISOString()
+    .split("T")[0];
+
+  const motherTongueOptions = [
+    "Telugu",
+    "Hindi",
+    "Tamil",
+    "Kannada",
+    "Malayalam",
+    "English",
+    "Marathi",
+    "Bengali",
+    "Gujarati",
+    "Punjabi",
+    "Urdu",
+    "Odia",
+  ];
+
+  const religionOptions = [
+    "Hindu",
+    "Muslim",
+    "Christian",
+    "Sikh",
+    "Jain",
+    "Buddhist",
+    "Other",
+  ];
+
+  const casteOptions = [
+    "OC",
+    "BC-A",
+    "BC-B",
+    "BC-C",
+    "BC-D",
+    "BC-E",
+    "SC",
+    "ST",
+    "Other",
+  ];
+
+  const countryOptions = ["India", "USA", "UK", "Canada", "Australia", "Other"];
+
+  const stateOptions = [
+    "Andhra Pradesh",
+    "Telangana",
+    "Tamil Nadu",
+    "Karnataka",
+    "Kerala",
+    "Maharashtra",
+    "Delhi",
+    "Gujarat",
+    "West Bengal",
+    "Other",
+  ];
+
+  const heightOptions = useMemo(() => {
+    const heights = [];
+    for (let feet = 4; feet <= 7; feet++) {
+      for (let inches = 0; inches < 12; inches++) {
+        heights.push(`${feet}'${inches}"`);
+      }
+    }
+    return heights;
+  }, []);
 
   const [formData, setFormData] = useState(
     editData ||
@@ -39,31 +108,43 @@ const Register = () => {
       }
   );
 
+  const calculateAge = (dob) => {
+    if (!dob) return "";
+
+    const birthDate = new Date(dob);
+    const today = new Date();
+
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
+      age--;
+    }
+
+    return age > 0 ? age : "";
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
     if (name === "dob") {
-      const birthDate = new Date(value);
-      const today = new Date();
-
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const m = today.getMonth() - birthDate.getMonth();
-
-      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-      }
+      const age = calculateAge(value);
 
       setFormData((prev) => ({
         ...prev,
         dob: value,
-        age: age > 0 ? age : "",
+        age,
       }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
+      return;
     }
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleImageChange = (e) => {
@@ -86,15 +167,30 @@ const Register = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (!formData.dob) {
+      alert("Please select Date of Birth");
+      return;
+    }
+
+    if (!formData.age || Number(formData.age) < 18) {
+      alert("Only users aged 18 and above can register");
+      return;
+    }
+
     navigate("/preview", { state: formData });
   };
 
   return (
     <div className="page-fade min-h-screen bg-gradient-to-r from-pink-200 via-rose-100 to-purple-200 flex items-center justify-center py-12 px-4">
       <div className="card-glass p-8 md:p-10 w-full max-w-5xl">
-        <h2 className="text-3xl md:text-5xl font-extrabold text-center text-pink-600 mb-8 leading-tight">
+        <h2 className="text-3xl md:text-5xl font-extrabold text-center text-pink-600 mb-3 leading-tight">
           💖 Create Your Matrimony Profile
         </h2>
+
+        <p className="text-center text-gray-600 mb-8 text-sm md:text-base">
+          Complete your profile with accurate details to find the right match.
+        </p>
 
         {formData.photo && (
           <div className="flex justify-center mb-6">
@@ -128,13 +224,23 @@ const Register = () => {
             onChange={handleChange}
           />
 
-          <Input
-            label="Date of Birth"
-            type="date"
-            name="dob"
-            value={formData.dob}
-            onChange={handleChange}
-          />
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Date of Birth
+            </label>
+            <input
+              type="date"
+              name="dob"
+              value={formData.dob}
+              onChange={handleChange}
+              max={maxDob}
+              className="input-soft"
+              required
+            />
+            <p className="text-xs text-pink-600 mt-2">
+              Only users aged 18 and above can register.
+            </p>
+          </div>
 
           <Input
             label="Age"
@@ -147,11 +253,12 @@ const Register = () => {
             bgClass="bg-gray-100"
           />
 
-          <Input
+          <Select
             label="Height"
             name="height"
-            placeholder={`Enter height (5'8")`}
             value={formData.height}
+            placeholder="Select Height"
+            options={heightOptions}
             onChange={handleChange}
           />
 
@@ -164,27 +271,30 @@ const Register = () => {
             onChange={handleChange}
           />
 
-          <Input
+          <Select
             label="Mother Tongue"
             name="motherTongue"
-            placeholder="Enter mother tongue"
             value={formData.motherTongue}
+            placeholder="Select Mother Tongue"
+            options={motherTongueOptions}
             onChange={handleChange}
           />
 
-          <Input
+          <Select
             label="Religion"
             name="religion"
-            placeholder="Enter religion"
             value={formData.religion}
+            placeholder="Select Religion"
+            options={religionOptions}
             onChange={handleChange}
           />
 
-          <Input
+          <Select
             label="Caste"
             name="caste"
-            placeholder="Enter caste"
             value={formData.caste}
+            placeholder="Select Caste"
+            options={casteOptions}
             onChange={handleChange}
           />
 
@@ -220,19 +330,21 @@ const Register = () => {
             onChange={handleChange}
           />
 
-          <Input
+          <Select
             label="Country"
             name="country"
-            placeholder="Enter country"
             value={formData.country}
+            placeholder="Select Country"
+            options={countryOptions}
             onChange={handleChange}
           />
 
-          <Input
+          <Select
             label="State"
             name="state"
-            placeholder="Enter state"
             value={formData.state}
+            placeholder="Select State"
+            options={stateOptions}
             onChange={handleChange}
           />
 
