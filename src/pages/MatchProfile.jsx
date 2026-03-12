@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Loader from "../components/Loader";
 
-// ✅ Use Vercel env (Production) OR localhost (dev)
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const MatchProfile = () => {
@@ -15,12 +14,50 @@ const MatchProfile = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [p, setP] = useState(null);
+  const [interestStatus, setInterestStatus] = useState("none");
 
   const loadOne = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE}/api/profiles/${id}`);
-      setP(res.data);
+
+      const profileRes = await axios.get(`${API_BASE}/api/profiles/${id}`);
+      const profileData = profileRes.data;
+      setP(profileData);
+
+      if (!me?._id || me._id === profileData._id) {
+        setInterestStatus("self");
+        return;
+      }
+
+      const [inboxRes, sentRes] = await Promise.all([
+        axios.get(`${API_BASE}/api/interests/inbox/${me._id}`),
+        axios.get(`${API_BASE}/api/interests/sent/${me._id}`),
+      ]);
+
+      const inboxList = inboxRes.data || [];
+      const sentList = sentRes.data || [];
+
+      const sentInterest = sentList.find(
+        (item) => item.toUserId?._id === profileData._id
+      );
+
+      const receivedInterest = inboxList.find(
+        (item) => item.fromUserId?._id === profileData._id
+      );
+
+      const existingInterest = sentInterest || receivedInterest;
+
+      if (!existingInterest) {
+        setInterestStatus("none");
+      } else if (existingInterest.status === "pending") {
+        setInterestStatus("pending");
+      } else if (existingInterest.status === "accepted") {
+        setInterestStatus("accepted");
+      } else if (existingInterest.status === "rejected") {
+        setInterestStatus("rejected");
+      } else {
+        setInterestStatus("none");
+      }
     } catch (err) {
       alert(err?.response?.data?.message || "Profile not found ❌");
       navigate("/matches");
@@ -41,6 +78,11 @@ const MatchProfile = () => {
         navigate("/login");
         return;
       }
+
+      if (!p?._id || me._id === p._id) {
+        return;
+      }
+
       setSending(true);
 
       await axios.post(`${API_BASE}/api/interests/send`, {
@@ -48,12 +90,62 @@ const MatchProfile = () => {
         toUserId: p._id,
       });
 
+      setInterestStatus("pending");
       alert("Interest sent ✅");
     } catch (err) {
       alert(err?.response?.data?.message || "Failed ❌");
     } finally {
       setSending(false);
     }
+  };
+
+  const renderInterestButton = () => {
+    if (interestStatus === "self") {
+      return null;
+    }
+
+    if (interestStatus === "accepted") {
+      return (
+        <button
+          className="w-full mt-5 py-3 rounded-2xl font-bold text-white bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 shadow-md transition duration-300"
+          onClick={() =>
+            navigate("/chat", {
+              state: {
+                selectedUser: p,
+              },
+            })
+          }
+        >
+          💬 Chat Now
+        </button>
+      );
+    }
+
+    if (interestStatus === "pending") {
+      return (
+        <button className="w-full mt-5 py-3 rounded-2xl font-bold bg-pink-100 text-pink-600 border border-pink-200 cursor-not-allowed">
+          ⏳ Interest Sent
+        </button>
+      );
+    }
+
+    if (interestStatus === "rejected") {
+      return (
+        <button className="w-full mt-5 py-3 rounded-2xl font-bold bg-gray-100 text-gray-500 border border-gray-200 cursor-not-allowed">
+          ❌ Rejected
+        </button>
+      );
+    }
+
+    return (
+      <button
+        className="btn-primary w-full mt-5"
+        onClick={sendInterest}
+        disabled={sending}
+      >
+        {sending ? "Sending..." : "💌 Send Interest"}
+      </button>
+    );
   };
 
   if (loading) {
@@ -79,7 +171,6 @@ const MatchProfile = () => {
         </div>
 
         <div className="flex flex-col md:flex-row gap-6 items-start">
-          {/* Left */}
           <div className="w-full md:w-1/3">
             <div className="bg-white/70 border border-pink-100 rounded-2xl p-5 text-center">
               {p.photo ? (
@@ -107,17 +198,10 @@ const MatchProfile = () => {
                 <MiniTag text={p.religion || "—"} />
               </div>
 
-              <button
-                className="btn-primary w-full mt-5"
-                onClick={sendInterest}
-                disabled={sending}
-              >
-                {sending ? "Sending..." : "💌 Send Interest"}
-              </button>
+              {renderInterestButton()}
             </div>
           </div>
 
-          {/* Right */}
           <div className="w-full md:w-2/3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Info label="Phone" value={p.phone} />

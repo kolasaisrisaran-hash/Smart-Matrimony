@@ -91,8 +91,8 @@ const Register = () => {
 
   return (
     <div className="page-fade min-h-screen bg-gradient-to-r from-pink-200 via-rose-100 to-purple-200 flex items-center justify-center py-12 px-4">
-      <div className="card-glass p-10 w-full max-w-5xl">
-        <h2 className="text-4xl font-extrabold text-center text-pink-600 mb-8">
+      <div className="card-glass p-8 md:p-10 w-full max-w-5xl">
+        <h2 className="text-3xl md:text-5xl font-extrabold text-center text-pink-600 mb-8 leading-tight">
           💖 Create Your Matrimony Profile
         </h2>
 
@@ -112,149 +112,173 @@ const Register = () => {
           className="grid grid-cols-1 md:grid-cols-2 gap-6"
         >
           <Input
+            label="Full Name"
             name="name"
-            placeholder="Full Name"
+            placeholder="Enter full name"
             value={formData.name}
             onChange={handleChange}
           />
 
           <Select
+            label="Gender"
             name="gender"
             value={formData.gender}
+            placeholder="Select Gender"
             options={["Male", "Female"]}
             onChange={handleChange}
           />
 
           <Input
+            label="Date of Birth"
             type="date"
             name="dob"
             value={formData.dob}
             onChange={handleChange}
           />
 
-          <input
+          <Input
+            label="Age"
             type="text"
-            value={formData.age || ""}
-            readOnly
+            name="age"
             placeholder="Age"
-            className="input-soft bg-gray-100"
+            value={formData.age || ""}
+            onChange={() => {}}
+            readOnly
+            bgClass="bg-gray-100"
           />
 
           <Input
+            label="Height"
             name="height"
-            placeholder={`Height (5'8")`}
+            placeholder={`Enter height (5'8")`}
             value={formData.height}
             onChange={handleChange}
           />
 
           <Select
+            label="Marital Status"
             name="maritalStatus"
             value={formData.maritalStatus}
+            placeholder="Select Marital Status"
             options={["Never Married", "Divorced", "Widowed"]}
             onChange={handleChange}
           />
 
           <Input
+            label="Mother Tongue"
             name="motherTongue"
-            placeholder="Mother Tongue"
+            placeholder="Enter mother tongue"
             value={formData.motherTongue}
             onChange={handleChange}
           />
 
           <Input
+            label="Religion"
             name="religion"
-            placeholder="Religion"
+            placeholder="Enter religion"
             value={formData.religion}
             onChange={handleChange}
           />
 
           <Input
+            label="Caste"
             name="caste"
-            placeholder="Caste"
+            placeholder="Enter caste"
             value={formData.caste}
             onChange={handleChange}
           />
 
           <Input
+            label="Sub-Caste"
             name="subCaste"
-            placeholder="Sub-Caste"
+            placeholder="Enter sub-caste"
             value={formData.subCaste}
             onChange={handleChange}
           />
 
           <Input
+            label="Education"
             name="education"
-            placeholder="Education"
+            placeholder="Enter education"
             value={formData.education}
             onChange={handleChange}
           />
 
           <Input
+            label="Occupation"
             name="occupation"
-            placeholder="Occupation"
+            placeholder="Enter occupation"
             value={formData.occupation}
             onChange={handleChange}
           />
 
           <Input
+            label="Annual Income"
             name="income"
-            placeholder="Annual Income"
+            placeholder="Enter annual income"
             value={formData.income}
             onChange={handleChange}
           />
 
           <Input
+            label="Country"
             name="country"
-            placeholder="Country"
+            placeholder="Enter country"
             value={formData.country}
             onChange={handleChange}
           />
 
           <Input
+            label="State"
             name="state"
-            placeholder="State"
+            placeholder="Enter state"
             value={formData.state}
             onChange={handleChange}
           />
 
           <Input
+            label="City"
             name="city"
-            placeholder="City"
+            placeholder="Enter city"
             value={formData.city}
             onChange={handleChange}
           />
 
           <Input
+            label="Phone Number"
             type="tel"
             name="phone"
-            placeholder="Phone Number"
+            placeholder="Enter phone number"
             value={formData.phone}
             onChange={handleChange}
           />
 
           <Input
+            label="Father Name"
             name="fatherName"
-            placeholder="Father Name"
+            placeholder="Enter father name"
             value={formData.fatherName}
             onChange={handleChange}
           />
 
           <Input
+            label="Mother Name"
             name="motherName"
-            placeholder="Mother Name"
+            placeholder="Enter mother name"
             value={formData.motherName}
             onChange={handleChange}
           />
 
           <Input
+            label="Number of Siblings"
             name="siblings"
-            placeholder="Number of Siblings"
+            placeholder="Enter number of siblings"
             value={formData.siblings}
             onChange={handleChange}
           />
 
           <div>
-            <label className="block text-sm font-semibold mb-1">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
               Profile Photo
             </label>
             <input
@@ -265,32 +289,46 @@ const Register = () => {
             />
           </div>
 
-          <textarea
-            name="about"
-            placeholder="About Me"
-            className="input-soft md:col-span-2"
-            rows="3"
-            value={formData.about}
-            onChange={handleChange}
-          />
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              About Me
+            </label>
+            <textarea
+              name="about"
+              placeholder="Write something about yourself"
+              className="input-soft w-full"
+              rows="3"
+              value={formData.about}
+              onChange={handleChange}
+              required
+            />
+          </div>
 
-          <input
-            type="email"
-            name="email"
-            placeholder="Email (only @gmail.com)"
-            value={formData.email}
-            onChange={handleChange}
-            className="input-soft"
-            pattern="^[a-zA-Z0-9._%+-]+@gmail\.com$"
-            title="Only Gmail addresses are allowed"
-            required
-          />
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Email
+            </label>
+            <input
+              type="email"
+              name="email"
+              placeholder="Enter Gmail address"
+              value={formData.email}
+              onChange={handleChange}
+              className="input-soft"
+              pattern="^[a-zA-Z0-9._%+-]+@gmail\.com$"
+              title="Only Gmail addresses are allowed"
+              required
+            />
+          </div>
 
           <div className="relative w-full">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Password
+            </label>
             <input
               type={showPassword ? "text" : "password"}
               name="password"
-              placeholder="Password"
+              placeholder="Enter password"
               value={formData.password}
               onChange={handleChange}
               className="input-soft w-full pr-24 password-input"
@@ -300,7 +338,7 @@ const Register = () => {
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-pink-600 hover:text-pink-700 z-10 bg-transparent border-none"
+              className="absolute right-4 top-[42px] text-sm font-semibold text-pink-600 hover:text-pink-700 z-10 bg-transparent border-none"
             >
               {showPassword ? "Hide" : "View"}
             </button>
@@ -315,33 +353,53 @@ const Register = () => {
   );
 };
 
-const Input = ({ type = "text", name, placeholder, value, onChange }) => (
-  <input
-    type={type}
-    name={name}
-    placeholder={placeholder}
-    value={value}
-    onChange={onChange}
-    className="input-soft"
-    required
-  />
+const Input = ({
+  label,
+  type = "text",
+  name,
+  placeholder,
+  value,
+  onChange,
+  readOnly = false,
+  bgClass = "",
+}) => (
+  <div>
+    <label className="block text-sm font-semibold text-gray-700 mb-2">
+      {label}
+    </label>
+    <input
+      type={type}
+      name={name}
+      placeholder={placeholder}
+      value={value}
+      onChange={onChange}
+      readOnly={readOnly}
+      className={`input-soft ${bgClass}`}
+      required={!readOnly}
+    />
+  </div>
 );
 
-const Select = ({ name, value, options, onChange }) => (
-  <select
-    name={name}
-    value={value}
-    onChange={onChange}
-    className="input-soft"
-    required
-  >
-    <option value="">Select</option>
-    {options.map((opt) => (
-      <option key={opt} value={opt}>
-        {opt}
-      </option>
-    ))}
-  </select>
+const Select = ({ label, name, value, options, onChange, placeholder }) => (
+  <div>
+    <label className="block text-sm font-semibold text-gray-700 mb-2">
+      {label}
+    </label>
+    <select
+      name={name}
+      value={value}
+      onChange={onChange}
+      className="input-soft"
+      required
+    >
+      <option value="">{placeholder}</option>
+      {options.map((opt) => (
+        <option key={opt} value={opt}>
+          {opt}
+        </option>
+      ))}
+    </select>
+  </div>
 );
 
 export default Register;

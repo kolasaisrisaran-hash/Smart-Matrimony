@@ -16,17 +16,19 @@ const Chat = () => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    fetchMatchedUsers();
-    fetchUnreadCounts();
+    loadChatList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (!selectedUser?._id || !loggedUser?._id) return;
+    if (!loggedUser?._id) return;
 
     const interval = setInterval(() => {
-      fetchMessages(selectedUser, false);
-      fetchUnreadCounts();
+      loadChatList();
+
+      if (selectedUser?._id) {
+        fetchMessages(selectedUser, false);
+      }
     }, 3000);
 
     return () => clearInterval(interval);
@@ -39,7 +41,7 @@ const Chat = () => {
 
   const fetchUnreadCounts = async () => {
     try {
-      if (!loggedUser?._id) return;
+      if (!loggedUser?._id) return {};
 
       const res = await axios.get(
         `${API_BASE}/api/messages/unread/${loggedUser._id}`
@@ -51,8 +53,10 @@ const Chat = () => {
       });
 
       setUnreadMap(map);
+      return map;
     } catch (error) {
       console.error("Failed to fetch unread counts", error);
+      return {};
     }
   };
 
@@ -75,47 +79,93 @@ const Chat = () => {
   };
 
   const fetchMatchedUsers = async () => {
+    if (!loggedUser?._id) return [];
+
+    const inboxRes = await axios.get(
+      `${API_BASE}/api/interests/inbox/${loggedUser._id}`
+    );
+    const sentRes = await axios.get(
+      `${API_BASE}/api/interests/sent/${loggedUser._id}`
+    );
+
+    const acceptedInbox = (inboxRes.data || [])
+      .filter((item) => item.status === "accepted")
+      .map((item) => item.fromUserId)
+      .filter(Boolean);
+
+    const acceptedSent = (sentRes.data || [])
+      .filter((item) => item.status === "accepted")
+      .map((item) => item.toUserId)
+      .filter(Boolean);
+
+    const allMatched = [...acceptedInbox, ...acceptedSent];
+
+    const uniqueMatched = allMatched.filter(
+      (user, index, self) =>
+        user?._id &&
+        index === self.findIndex((u) => u?._id === user?._id)
+    );
+
+    return uniqueMatched;
+  };
+
+  const loadChatList = async () => {
     try {
-      if (!loggedUser?._id) return;
+      const users = await fetchMatchedUsers();
+      const unreadCounts = await fetchUnreadCounts();
 
-      const inboxRes = await axios.get(
-        `${API_BASE}/api/interests/inbox/${loggedUser._id}`
+      const usersWithLastMessage = await Promise.all(
+        users.map(async (user) => {
+          try {
+            const msgRes = await axios.get(
+              `${API_BASE}/api/messages/${loggedUser._id}/${user._id}`
+            );
+
+            const userMessages = msgRes.data || [];
+            const lastMessageObj =
+              userMessages.length > 0
+                ? userMessages[userMessages.length - 1]
+                : null;
+
+            return {
+              ...user,
+              lastMessage: lastMessageObj?.text || "No messages yet",
+              lastMessageTime: lastMessageObj?.createdAt || null,
+              unreadCount: unreadCounts[user._id] || 0,
+            };
+          } catch (err) {
+            return {
+              ...user,
+              lastMessage: "No messages yet",
+              lastMessageTime: null,
+              unreadCount: unreadCounts[user._id] || 0,
+            };
+          }
+        })
       );
-      const sentRes = await axios.get(
-        `${API_BASE}/api/interests/sent/${loggedUser._id}`
-      );
 
-      const acceptedInbox = (inboxRes.data || [])
-        .filter((item) => item.status === "accepted")
-        .map((item) => item.fromUserId)
-        .filter(Boolean);
+      usersWithLastMessage.sort((a, b) => {
+        const timeA = a.lastMessageTime
+          ? new Date(a.lastMessageTime).getTime()
+          : 0;
+        const timeB = b.lastMessageTime
+          ? new Date(b.lastMessageTime).getTime()
+          : 0;
+        return timeB - timeA;
+      });
 
-      const acceptedSent = (sentRes.data || [])
-        .filter((item) => item.status === "accepted")
-        .map((item) => item.toUserId)
-        .filter(Boolean);
-
-      const allMatched = [...acceptedInbox, ...acceptedSent];
-
-      const uniqueMatched = allMatched.filter(
-        (user, index, self) =>
-          user?._id &&
-          index === self.findIndex((u) => u?._id === user?._id)
-      );
-
-      setMatchedUsers(uniqueMatched);
+      setMatchedUsers(usersWithLastMessage);
 
       const routeSelectedUser = location.state?.selectedUser;
-
-      if (routeSelectedUser?._id) {
+      if (routeSelectedUser?._id && !selectedUser?._id) {
         const matchedRouteUser =
-          uniqueMatched.find((u) => u._id === routeSelectedUser._id) ||
+          usersWithLastMessage.find((u) => u._id === routeSelectedUser._id) ||
           routeSelectedUser;
 
         await openChat(matchedRouteUser);
       }
     } catch (error) {
-      console.error("Failed to load matched users", error);
+      console.error("Failed to load chat list", error);
     }
   };
 
@@ -157,24 +207,35 @@ const Chat = () => {
         text: text.trim(),
       });
 
-      setMessages((prev) => [...prev, res.data.data]);
+      const newMsg = res.data.data;
+
+      setMessages((prev) => [...prev, newMsg]);
       setText("");
+
+      setMatchedUsers((prev) =>
+        prev
+          .map((user) =>
+            user._id === selectedUser._id
+              ? {
+                  ...user,
+                  lastMessage: newMsg.text,
+                  lastMessageTime: newMsg.createdAt,
+                }
+              : user
+          )
+          .sort((a, b) => {
+            const timeA = a.lastMessageTime
+              ? new Date(a.lastMessageTime).getTime()
+              : 0;
+            const timeB = b.lastMessageTime
+              ? new Date(b.lastMessageTime).getTime()
+              : 0;
+            return timeB - timeA;
+          })
+      );
     } catch (error) {
       alert(error?.response?.data?.message || "Failed to send message");
     }
-  };
-
-  const getLastMessage = (userId) => {
-    const related = messages.filter((msg) => {
-      const senderId = msg.sender?._id || msg.sender;
-      const receiverId = msg.receiver?._id || msg.receiver;
-
-      return senderId === userId || receiverId === userId;
-    });
-
-    if (!related.length) return "No messages yet";
-
-    return related[related.length - 1]?.text || "No messages yet";
   };
 
   return (
@@ -206,19 +267,37 @@ const Chat = () => {
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="font-semibold text-gray-800 truncate">
+                        <p
+                          className={`truncate ${
+                            user.unreadCount > 0 &&
+                            selectedUser?._id !== user._id
+                              ? "font-bold text-pink-600"
+                              : "font-semibold text-gray-800"
+                          }`}
+                        >
                           {user.name}
                         </p>
 
-                        {unreadMap[user._id] > 0 && (
-                          <span className="min-w-6 h-6 px-2 rounded-full bg-pink-500 text-white text-xs font-bold flex items-center justify-center">
-                            {unreadMap[user._id]}
-                          </span>
-                        )}
+                        {user.unreadCount > 0 &&
+                          selectedUser?._id !== user._id && (
+                            <span className="min-w-6 h-6 px-2 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                              {user.unreadCount}
+                            </span>
+                          )}
                       </div>
 
-                      <p className="text-sm text-gray-500 truncate">
-                        {getLastMessage(user._id)}
+                      <p
+                        className={`text-sm truncate ${
+                          user.unreadCount > 0 &&
+                          selectedUser?._id !== user._id
+                            ? "font-semibold text-pink-600"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        {user.unreadCount > 0 &&
+                        selectedUser?._id !== user._id
+                          ? "New message"
+                          : user.lastMessage}
                       </p>
                     </div>
                   </div>

@@ -446,50 +446,17 @@ app.post("/api/messages/send", async (req, res) => {
       seen: false,
     });
 
+    const populatedMessage = await Message.findById(newMessage._id)
+      .populate("sender", "name photo city")
+      .populate("receiver", "name photo city");
+
     res.status(201).json({
       message: "Message sent successfully ✅",
-      data: newMessage,
+      data: populatedMessage,
     });
   } catch (error) {
     res.status(500).json({
       message: "Failed to send message",
-      error: error.message,
-    });
-  }
-});
-
-// ✅ Get messages between two matched users
-app.get("/api/messages/:senderId/:receiverId", async (req, res) => {
-  try {
-    const { senderId, receiverId } = req.params;
-
-    const isMatched = await Interest.findOne({
-      $or: [
-        { fromUserId: senderId, toUserId: receiverId, status: "accepted" },
-        { fromUserId: receiverId, toUserId: senderId, status: "accepted" },
-      ],
-    });
-
-    if (!isMatched) {
-      return res.status(403).json({
-        message: "Chat allowed only between accepted interests",
-      });
-    }
-
-    const messages = await Message.find({
-      $or: [
-        { sender: senderId, receiver: receiverId },
-        { sender: receiverId, receiver: senderId },
-      ],
-    })
-      .sort({ createdAt: 1 })
-      .populate("sender", "name photo")
-      .populate("receiver", "name photo");
-
-    res.status(200).json(messages);
-  } catch (error) {
-    res.status(500).json({
-      message: "Failed to fetch messages",
       error: error.message,
     });
   }
@@ -548,6 +515,43 @@ app.get("/api/messages/unread/:userId", async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: "Failed to fetch unread counts",
+      error: error.message,
+    });
+  }
+});
+
+// ✅ Get messages between two matched users
+app.get("/api/messages/:senderId/:receiverId", async (req, res) => {
+  try {
+    const { senderId, receiverId } = req.params;
+
+    const isMatched = await Interest.findOne({
+      $or: [
+        { fromUserId: senderId, toUserId: receiverId, status: "accepted" },
+        { fromUserId: receiverId, toUserId: senderId, status: "accepted" },
+      ],
+    });
+
+    if (!isMatched) {
+      return res.status(403).json({
+        message: "Chat allowed only between accepted interests",
+      });
+    }
+
+    const messages = await Message.find({
+      $or: [
+        { sender: senderId, receiver: receiverId },
+        { sender: receiverId, receiver: senderId },
+      ],
+    })
+      .sort({ createdAt: 1 })
+      .populate("sender", "name photo city")
+      .populate("receiver", "name photo city");
+
+    res.status(200).json(messages);
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to fetch messages",
       error: error.message,
     });
   }
