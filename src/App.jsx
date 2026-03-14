@@ -11,6 +11,7 @@ import Matches from "./pages/Matches";
 import MatchProfile from "./pages/MatchProfile";
 import Interests from "./pages/Interests";
 import Chat from "./pages/Chat";
+import Shortlist from "./pages/Shortlist";
 
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUserProfile from "./pages/AdminUserProfile";
@@ -75,6 +76,16 @@ function App() {
         element={
           <ProtectedRoute>
             <Chat />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Shortlist */}
+      <Route
+        path="/shortlist"
+        element={
+          <ProtectedRoute>
+            <Shortlist />
           </ProtectedRoute>
         }
       />

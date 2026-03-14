@@ -3,18 +3,17 @@ import axios from "axios";
 import Loader from "../components/Loader";
 import { useNavigate } from "react-router-dom";
 
-// ✅ Use Vercel env (Production) OR localhost (dev)
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const Matches = () => {
   const navigate = useNavigate();
-
   const loggedUser = JSON.parse(localStorage.getItem("logged_user") || "null");
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [profiles, setProfiles] = useState([]);
   const [acceptedMatchIds, setAcceptedMatchIds] = useState([]);
+  const [shortlistingId, setShortlistingId] = useState("");
 
   const [filters, setFilters] = useState({
     q: "",
@@ -72,8 +71,36 @@ const Matches = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const addToShortlist = async (profileId) => {
+    try {
+      if (!loggedUser?._id) {
+        alert("Please login again");
+        navigate("/login");
+        return;
+      }
+
+      setShortlistingId(profileId);
+
+      const res = await axios.post(`${API_BASE}/api/shortlist/add`, {
+        userId: loggedUser._id,
+        profileId,
+      });
+
+      alert(res.data?.message || "Added to shortlist ⭐");
+    } catch (err) {
+      console.error("Shortlist add error:", err);
+      alert(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to add shortlist ❌"
+      );
+    } finally {
+      setShortlistingId("");
+    }
+  };
+
   const handleChange = (e) => {
-    setFilters((p) => ({ ...p, [e.target.name]: e.target.value }));
+    setFilters((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const clearFilters = () => {
@@ -92,7 +119,7 @@ const Matches = () => {
   const filtered = useMemo(() => {
     const q = filters.q.trim().toLowerCase();
 
-    let out = profiles.filter((p) => {
+    const out = profiles.filter((p) => {
       if (filters.gender && p.gender !== filters.gender) return false;
 
       const age = Number(p.age || 0);
@@ -121,9 +148,8 @@ const Matches = () => {
       }
 
       if (q) {
-        const hay = `${p.name || ""} ${p.city || ""} ${p.religion || ""} ${
-          p.caste || ""
-        } ${p.education || ""} ${p.occupation || ""}`.toLowerCase();
+        const hay =
+          `${p.name || ""} ${p.city || ""} ${p.religion || ""} ${p.caste || ""} ${p.education || ""} ${p.occupation || ""}`.toLowerCase();
 
         if (!hay.includes(q)) return false;
       }
@@ -148,22 +174,35 @@ const Matches = () => {
     return out;
   }, [profiles, filters]);
 
+  const activeFilterChips = [
+    filters.gender && `Gender: ${filters.gender}`,
+    filters.minAge && `Min Age: ${filters.minAge}`,
+    filters.maxAge && `Max Age: ${filters.maxAge}`,
+    filters.city && `City: ${filters.city}`,
+    filters.religion && `Religion: ${filters.religion}`,
+    filters.caste && `Caste: ${filters.caste}`,
+    filters.q && `Search: ${filters.q}`,
+  ].filter(Boolean);
+
   return (
     <div className="page-fade min-h-screen bg-gradient-to-r from-pink-200 to-purple-200 px-4 py-10">
       <div className="max-w-6xl mx-auto">
         <div className="card-glass p-6 md:p-8 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
               <h2 className="text-3xl font-extrabold text-pink-600">
-                💞 Matches
+                💞 Discover Matches
               </h2>
-              <p className="text-gray-700">
-                Find profiles using filters & search. Results:{" "}
-                <b>{filtered.length}</b>
+              <p className="text-gray-700 mt-1">
+                Explore compatible profiles and connect with the right match.
               </p>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="bg-pink-100 text-pink-700 px-3 py-2 rounded-full text-sm font-bold border border-pink-200">
+                {filtered.length} Profiles
+              </span>
+
               <button
                 onClick={() => loadProfiles(true)}
                 className="btn-outline"
@@ -173,10 +212,23 @@ const Matches = () => {
               </button>
 
               <button onClick={clearFilters} className="btn-outline">
-                ✨ Clear
+                ✨ Clear Filters
               </button>
             </div>
           </div>
+
+          {activeFilterChips.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {activeFilterChips.map((chip) => (
+                <span
+                  key={chip}
+                  className="px-3 py-1 rounded-full bg-white/80 border border-pink-200 text-pink-700 text-sm font-semibold"
+                >
+                  {chip}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -277,8 +329,13 @@ const Matches = () => {
               </div>
             ) : filtered.length === 0 ? (
               <div className="card-glass p-10 text-center">
-                <p className="text-gray-700 font-semibold">No matches found.</p>
-                <p className="text-gray-600">Try changing filters.</p>
+                <div className="text-5xl mb-3">💔</div>
+                <p className="text-gray-800 font-bold text-lg">
+                  No matches found
+                </p>
+                <p className="text-gray-600 mt-1">
+                  Try changing filters to discover more profiles.
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -291,6 +348,8 @@ const Matches = () => {
                     onMessage={() =>
                       navigate("/chat", { state: { selectedUser: p } })
                     }
+                    onShortlist={() => addToShortlist(p._id)}
+                    shortlisting={shortlistingId === p._id}
                   />
                 ))}
               </div>
@@ -302,16 +361,23 @@ const Matches = () => {
   );
 };
 
-const ListCard = ({ p, onView, onMessage, canMessage }) => {
+const ListCard = ({
+  p,
+  onView,
+  onMessage,
+  canMessage,
+  onShortlist,
+  shortlisting,
+}) => {
   return (
-    <div className="card-glass p-5 hover:scale-[1.01] transition">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="flex items-center gap-3 min-w-0">
+    <div className="card-glass p-5 hover:scale-[1.02] hover:shadow-xl transition duration-300">
+      <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+        <div className="flex items-center gap-3 min-w-0 lg:w-[220px]">
           {p.photo ? (
             <img
               src={p.photo}
               alt="profile"
-              className="w-16 h-16 rounded-full object-cover border-2 border-pink-400"
+              className="w-16 h-16 rounded-full object-cover border-2 border-pink-400 shadow-sm"
               onError={(e) => (e.currentTarget.style.display = "none")}
             />
           ) : (
@@ -321,47 +387,61 @@ const ListCard = ({ p, onView, onMessage, canMessage }) => {
           )}
 
           <div className="min-w-0">
-            <p className="text-lg font-extrabold text-gray-900 truncate">
+            <p className="text-lg font-extrabold text-gray-900 truncate flex items-center gap-2">
               {p.name || "-"}
+              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
+                Verified
+              </span>
             </p>
             <p className="text-sm text-gray-700 truncate">
-              {p.age ? `${p.age} yrs` : "-"} • {p.city || "-"} •{" "}
-              {p.gender || "-"}
+              {p.age ? `${p.age} yrs` : "-"} • {p.city || "-"} • {p.gender || "-"}
             </p>
           </div>
         </div>
 
-        <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="flex-1 grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-3">
           <Mini label="Religion" value={p.religion} />
           <Mini label="Caste" value={p.caste} />
           <Mini label="Education" value={p.education} />
           <Mini label="Job" value={p.occupation} />
+          <Mini label="Height" value={p.height} />
+          <Mini label="Income" value={p.income} />
         </div>
 
-        <div className="sm:ml-auto flex flex-col sm:flex-row gap-2">
-          <button onClick={onView} className="btn-primary w-full sm:w-auto">
+        <div className="lg:ml-auto flex flex-col sm:flex-row lg:flex-col gap-2 lg:min-w-[150px]">
+          <button onClick={onView} className="btn-primary w-full">
             View Profile
           </button>
 
+          <button
+            onClick={onShortlist}
+            className="btn-outline w-full"
+            disabled={shortlisting}
+          >
+            {shortlisting ? "Adding..." : "⭐ Shortlist"}
+          </button>
+
           {canMessage && (
-            <button onClick={onMessage} className="btn-outline w-full sm:w-auto">
-              Message 💬
+            <button onClick={onMessage} className="btn-outline w-full">
+              Chat Now 💬
             </button>
           )}
         </div>
       </div>
 
       {p.about && (
-        <p className="mt-4 text-gray-700 text-sm line-clamp-2">{p.about}</p>
+        <p className="mt-4 text-gray-700 text-sm leading-6 line-clamp-2">
+          {p.about}
+        </p>
       )}
     </div>
   );
 };
 
 const Mini = ({ label, value }) => (
-  <div className="bg-white/70 border border-pink-100 rounded-xl p-2">
-    <p className="text-[11px] text-pink-700 font-bold">{label}</p>
-    <p className="text-gray-800 text-sm truncate">{value || "-"}</p>
+  <div className="bg-white/80 border border-pink-100 rounded-xl p-3 min-w-0">
+    <p className="text-[11px] text-pink-700 font-bold mb-1">{label}</p>
+    <p className="text-gray-800 text-sm break-words">{value || "-"}</p>
   </div>
 );
 

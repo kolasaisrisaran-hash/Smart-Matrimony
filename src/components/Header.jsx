@@ -69,7 +69,7 @@ const Header = () => {
           💍 Smart Matrimony
         </Link>
 
-        <nav className="flex items-center gap-2 sm:gap-4">
+        <nav className="flex items-center gap-2 sm:gap-4 flex-wrap justify-end">
           <Link
             to="/home"
             className="px-3 py-2 rounded-lg text-gray-700 hover:bg-pink-50 transition"
@@ -110,6 +110,13 @@ const Header = () => {
               </Link>
 
               <Link
+                to="/shortlist"
+                className="px-3 py-2 rounded-lg text-gray-700 hover:bg-pink-50 transition"
+              >
+                ⭐ Shortlist
+              </Link>
+
+              <Link
                 to="/interests"
                 className="relative px-3 py-2 rounded-lg text-gray-700 hover:bg-pink-50 transition"
               >
@@ -119,6 +126,13 @@ const Header = () => {
                     {pendingCount > 99 ? "99+" : pendingCount}
                   </span>
                 )}
+              </Link>
+
+              <Link
+                to="/chat"
+                className="px-3 py-2 rounded-lg text-gray-700 hover:bg-pink-50 transition"
+              >
+                Chat
               </Link>
 
               {isAdmin && (

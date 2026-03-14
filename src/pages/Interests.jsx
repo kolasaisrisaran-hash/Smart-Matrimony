@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Loader from "../components/Loader";
+import { useNavigate } from "react-router-dom";
 
-// ✅ Use Vercel env (Production) OR localhost (dev)
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const Interests = () => {
+  const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("logged_user") || "null");
 
-  const [tab, setTab] = useState("inbox"); // inbox | sent | accepted
+  const [tab, setTab] = useState("inbox");
   const [loading, setLoading] = useState(true);
   const [inbox, setInbox] = useState([]);
   const [sent, setSent] = useState([]);
@@ -16,10 +17,12 @@ const Interests = () => {
   const loadAll = async () => {
     try {
       setLoading(true);
+
       const [inb, snt] = await Promise.all([
         axios.get(`${API_BASE}/api/interests/inbox/${user._id}`),
         axios.get(`${API_BASE}/api/interests/sent/${user._id}`),
       ]);
+
       setInbox(inb.data || []);
       setSent(snt.data || []);
     } catch (err) {
@@ -31,7 +34,7 @@ const Interests = () => {
 
   useEffect(() => {
     loadAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line
   }, []);
 
   const updateStatus = async (interestId, status) => {
@@ -44,19 +47,19 @@ const Interests = () => {
   };
 
   const pendingCount = useMemo(
-    () => (inbox || []).filter((it) => it.status === "pending").length,
+    () => inbox.filter((it) => it.status === "pending").length,
     [inbox]
   );
 
   const acceptedList = useMemo(() => {
-    const a1 = (inbox || [])
+    const a1 = inbox
       .filter((it) => it.status === "accepted")
       .map((it) => ({
         interestId: it._id,
         person: it.fromUserId,
       }));
 
-    const a2 = (sent || [])
+    const a2 = sent
       .filter((it) => it.status === "accepted")
       .map((it) => ({
         interestId: it._id,
@@ -64,6 +67,7 @@ const Interests = () => {
       }));
 
     const map = new Map();
+
     [...a1, ...a2].forEach((x) => {
       const id = x.person?._id;
       if (id && !map.has(id)) map.set(id, x);
@@ -75,12 +79,14 @@ const Interests = () => {
   return (
     <div className="page-fade min-h-screen bg-gradient-to-r from-pink-200 to-purple-200 px-4 py-10">
       <div className="max-w-5xl mx-auto card-glass p-6 md:p-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
           <div>
             <h2 className="text-3xl font-extrabold text-pink-600">
               💌 Interests
             </h2>
-            <p className="text-gray-700">Inbox, Sent & Accepted matches.</p>
+            <p className="text-gray-700">
+              Manage requests and connect with your matches.
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -102,7 +108,7 @@ const Interests = () => {
               className={tab === "accepted" ? "btn-primary" : "btn-outline"}
               onClick={() => setTab("accepted")}
             >
-              ✅ Accepted ({acceptedList.length})
+              ✅ Matches ({acceptedList.length})
             </button>
 
             <button className="btn-outline" onClick={loadAll}>
@@ -117,14 +123,14 @@ const Interests = () => {
           </div>
         ) : tab === "inbox" ? (
           inbox.length === 0 ? (
-            <p className="text-center text-gray-700">No inbox requests.</p>
+            <EmptyState text="No new interest requests yet." />
           ) : (
             <div className="space-y-4">
               {inbox.map((it) => (
                 <InterestCard
                   key={it._id}
                   user={it.fromUserId}
-                  subText="Requested you"
+                  subText="Sent you a request"
                   rightButtons={
                     it.status === "pending" ? (
                       <div className="flex gap-2">
@@ -132,13 +138,14 @@ const Interests = () => {
                           className="btn-primary"
                           onClick={() => updateStatus(it._id, "accepted")}
                         >
-                          ✅ Accept
+                          Accept
                         </button>
+
                         <button
                           className="btn-outline"
                           onClick={() => updateStatus(it._id, "rejected")}
                         >
-                          ❌ Reject
+                          Reject
                         </button>
                       </div>
                     ) : (
@@ -151,30 +158,25 @@ const Interests = () => {
           )
         ) : tab === "sent" ? (
           sent.length === 0 ? (
-            <p className="text-center text-gray-700">No sent requests.</p>
+            <EmptyState text="You haven't sent any interests yet." />
           ) : (
             <div className="space-y-4">
               {sent.map((it) => (
                 <InterestCard
                   key={it._id}
                   user={it.toUserId}
-                  subText="You requested"
+                  subText="Interest sent"
                   rightButtons={<StatusBadge status={it.status} />}
                 />
               ))}
             </div>
           )
         ) : acceptedList.length === 0 ? (
-          <p className="text-center text-gray-700">
-            No accepted matches yet ✅
-          </p>
+          <EmptyState text="No accepted matches yet." />
         ) : (
           <div className="space-y-4">
             {acceptedList.map((m) => (
-              <AcceptedCard
-                key={m.person?._id || m.interestId}
-                person={m.person}
-              />
+              <AcceptedCard key={m.person?._id} person={m.person} />
             ))}
           </div>
         )}
@@ -185,14 +187,13 @@ const Interests = () => {
 
 const InterestCard = ({ user, rightButtons, subText }) => {
   return (
-    <div className="bg-white/70 border border-pink-100 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+    <div className="bg-white/70 border border-pink-100 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-lg transition">
       <div className="flex items-center gap-3 min-w-0">
         {user?.photo ? (
           <img
             src={user.photo}
             alt="profile"
             className="w-14 h-14 rounded-full object-cover border-2 border-pink-400"
-            onError={(e) => (e.currentTarget.style.display = "none")}
           />
         ) : (
           <div className="w-14 h-14 rounded-full bg-pink-100 border border-pink-200 flex items-center justify-center text-pink-600 font-extrabold text-xl">
@@ -201,14 +202,19 @@ const InterestCard = ({ user, rightButtons, subText }) => {
         )}
 
         <div className="min-w-0">
-          <p className="font-extrabold text-gray-900 truncate">
+          <p className="font-extrabold text-gray-900 flex items-center gap-2">
             {user?.name || "-"}
+            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
+              Verified
+            </span>
           </p>
-          <p className="text-sm text-gray-700 truncate">
+
+          <p className="text-sm text-gray-700">
             {user?.age ? `${user.age} yrs` : "-"} • {user?.city || "-"} •{" "}
             {user?.gender || "-"}
           </p>
-          <p className="text-xs text-gray-600 truncate">{subText}</p>
+
+          <p className="text-xs text-gray-600">{subText}</p>
         </div>
       </div>
 
@@ -218,15 +224,16 @@ const InterestCard = ({ user, rightButtons, subText }) => {
 };
 
 const AcceptedCard = ({ person }) => {
+  const navigate = useNavigate();
+
   return (
-    <div className="bg-white/70 border border-pink-100 rounded-2xl p-4 flex flex-col md:flex-row md:items-center gap-4">
+    <div className="bg-white/70 border border-pink-100 rounded-2xl p-4 flex flex-col md:flex-row md:items-center gap-4 hover:shadow-lg transition">
       <div className="flex items-center gap-3 min-w-0">
         {person?.photo ? (
           <img
             src={person.photo}
             alt="profile"
             className="w-14 h-14 rounded-full object-cover border-2 border-pink-400"
-            onError={(e) => (e.currentTarget.style.display = "none")}
           />
         ) : (
           <div className="w-14 h-14 rounded-full bg-pink-100 border border-pink-200 flex items-center justify-center text-pink-600 font-extrabold text-xl">
@@ -234,30 +241,32 @@ const AcceptedCard = ({ person }) => {
           </div>
         )}
 
-        <div className="min-w-0">
-          <p className="font-extrabold text-gray-900 truncate">
-            {person?.name || "-"}
-          </p>
-          <p className="text-sm text-gray-700 truncate">
-            {person?.age ? `${person.age} yrs` : "-"} • {person?.city || "-"} •{" "}
-            {person?.gender || "-"}
+        <div>
+          <p className="font-extrabold text-gray-900">{person?.name}</p>
+          <p className="text-sm text-gray-700">
+            {person?.age ? `${person.age} yrs` : "-"} • {person?.city || "-"}
           </p>
         </div>
       </div>
 
-      <div className="md:ml-auto grid grid-cols-1 sm:grid-cols-3 gap-2 w-full md:w-auto">
-        <Mini label="Phone" value={person?.phone} />
-        <Mini label="Email" value={person?.email} />
-        <Mini label="Religion" value={person?.religion} />
+      <div className="md:ml-auto flex gap-2">
+        <button
+          className="btn-primary"
+          onClick={() =>
+            navigate("/chat", { state: { selectedUser: person } })
+          }
+        >
+          Chat Now 💬
+        </button>
       </div>
     </div>
   );
 };
 
-const Mini = ({ label, value }) => (
-  <div className="bg-white/80 border border-pink-100 rounded-xl p-2">
-    <p className="text-[11px] text-pink-700 font-bold">{label}</p>
-    <p className="text-gray-800 text-sm truncate">{value || "-"}</p>
+const EmptyState = ({ text }) => (
+  <div className="text-center py-10">
+    <div className="text-4xl mb-2">💔</div>
+    <p className="text-gray-700 font-semibold">{text}</p>
   </div>
 );
 
@@ -267,6 +276,7 @@ const StatusBadge = ({ status }) => {
     accepted: "✅ Accepted",
     rejected: "❌ Rejected",
   };
+
   return (
     <div className="px-4 py-2 rounded-full bg-white border border-pink-200 text-pink-700 font-bold">
       {map[status] || status}

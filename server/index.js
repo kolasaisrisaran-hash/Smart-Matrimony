@@ -111,6 +111,29 @@ const messageSchema = new mongoose.Schema(
 const Message = mongoose.model("Message", messageSchema);
 
 /* =========================
+   ⭐ Shortlist Schema
+========================= */
+const shortlistSchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Profile",
+      required: true,
+    },
+    profileId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Profile",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+shortlistSchema.index({ userId: 1, profileId: 1 }, { unique: true });
+
+const Shortlist = mongoose.model("Shortlist", shortlistSchema);
+
+/* =========================
    ✅ Health
 ========================= */
 app.get("/", (req, res) => res.send("Backend is running ✅"));
@@ -397,6 +420,83 @@ app.patch("/api/interests/:id", async (req, res) => {
     }
 
     res.json({ message: "Updated ✅", interest: updated });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/* =========================
+   ⭐ SHORTLIST SYSTEM
+========================= */
+
+// ⭐ Add to shortlist
+app.post("/api/shortlist/add", async (req, res) => {
+  try {
+    const { userId, profileId } = req.body;
+
+    if (!userId || !profileId) {
+      return res.status(400).json({ message: "userId and profileId required" });
+    }
+
+    if (userId === profileId) {
+      return res.status(400).json({ message: "You cannot shortlist yourself" });
+    }
+
+    const userExists = await Profile.findById(userId);
+    const profileExists = await Profile.findById(profileId);
+
+    if (!userExists || !profileExists) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const item = await Shortlist.create({
+      userId,
+      profileId,
+    });
+
+    res.json({ message: "Added to shortlist ⭐", item });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ message: "Already shortlisted" });
+    }
+
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ⭐ Get shortlist
+app.get("/api/shortlist/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const list = await Shortlist.find({ userId })
+      .sort({ createdAt: -1 })
+      .populate(
+        "profileId",
+        "name age city gender religion caste photo occupation income height"
+      );
+
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ⭐ Remove from shortlist
+app.delete("/api/shortlist/remove", async (req, res) => {
+  try {
+    const { userId, profileId } = req.body;
+
+    if (!userId || !profileId) {
+      return res.status(400).json({ message: "userId and profileId required" });
+    }
+
+    await Shortlist.deleteOne({
+      userId,
+      profileId,
+    });
+
+    res.json({ message: "Removed from shortlist" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
