@@ -13,6 +13,7 @@ const Matches = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [profiles, setProfiles] = useState([]);
   const [acceptedMatchIds, setAcceptedMatchIds] = useState([]);
+  const [shortlistedIds, setShortlistedIds] = useState([]);
   const [shortlistingId, setShortlistingId] = useState("");
 
   const [filters, setFilters] = useState({
@@ -30,13 +31,16 @@ const Matches = () => {
     try {
       isRefresh ? setRefreshing(true) : setLoading(true);
 
-      const [profilesRes, inboxRes, sentRes] = await Promise.all([
+      const [profilesRes, inboxRes, sentRes, shortlistRes] = await Promise.all([
         axios.get(`${API_BASE}/api/profiles`),
         loggedUser?._id
           ? axios.get(`${API_BASE}/api/interests/inbox/${loggedUser._id}`)
           : Promise.resolve({ data: [] }),
         loggedUser?._id
           ? axios.get(`${API_BASE}/api/interests/sent/${loggedUser._id}`)
+          : Promise.resolve({ data: [] }),
+        loggedUser?._id
+          ? axios.get(`${API_BASE}/api/shortlist/${loggedUser._id}`)
           : Promise.resolve({ data: [] }),
       ]);
 
@@ -58,6 +62,12 @@ const Matches = () => {
 
       const uniqueAcceptedIds = [...new Set([...inboxAccepted, ...sentAccepted])];
       setAcceptedMatchIds(uniqueAcceptedIds);
+
+      const shortlistIds = (shortlistRes.data || [])
+        .map((item) => item.profileId?._id || item.profileId)
+        .filter(Boolean);
+
+      setShortlistedIds(shortlistIds);
     } catch (err) {
       alert(err?.response?.data?.message || "Failed to load matches ❌");
     } finally {
@@ -79,12 +89,18 @@ const Matches = () => {
         return;
       }
 
+      if (shortlistedIds.includes(profileId)) {
+        return;
+      }
+
       setShortlistingId(profileId);
 
       const res = await axios.post(`${API_BASE}/api/shortlist/add`, {
         userId: loggedUser._id,
         profileId,
       });
+
+      setShortlistedIds((prev) => [...prev, profileId]);
 
       alert(res.data?.message || "Added to shortlist ⭐");
     } catch (err) {
@@ -344,6 +360,7 @@ const Matches = () => {
                     key={p._id}
                     p={p}
                     canMessage={acceptedMatchIds.includes(p._id)}
+                    isShortlisted={shortlistedIds.includes(p._id)}
                     onView={() => navigate(`/matches/${p._id}`)}
                     onMessage={() =>
                       navigate("/chat", { state: { selectedUser: p } })
@@ -368,6 +385,7 @@ const ListCard = ({
   canMessage,
   onShortlist,
   shortlisting,
+  isShortlisted,
 }) => {
   return (
     <div className="card-glass p-5 hover:scale-[1.02] hover:shadow-xl transition duration-300">
@@ -413,13 +431,22 @@ const ListCard = ({
             View Profile
           </button>
 
-          <button
-            onClick={onShortlist}
-            className="btn-outline w-full"
-            disabled={shortlisting}
-          >
-            {shortlisting ? "Adding..." : "⭐ Shortlist"}
-          </button>
+          {isShortlisted ? (
+            <button
+              className="w-full px-4 py-3 rounded-2xl font-bold bg-pink-100 text-pink-600 border border-pink-200 cursor-not-allowed"
+              disabled
+            >
+              ✅ Shortlisted
+            </button>
+          ) : (
+            <button
+              onClick={onShortlist}
+              className="btn-outline w-full"
+              disabled={shortlisting}
+            >
+              {shortlisting ? "Adding..." : "⭐ Shortlist"}
+            </button>
+          )}
 
           {canMessage && (
             <button onClick={onMessage} className="btn-outline w-full">
