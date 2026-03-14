@@ -79,9 +79,7 @@ const MatchProfile = () => {
         return;
       }
 
-      if (!p?._id || me._id === p._id) {
-        return;
-      }
+      if (!p?._id || me._id === p._id) return;
 
       setSending(true);
 
@@ -100,9 +98,7 @@ const MatchProfile = () => {
   };
 
   const renderInterestButton = () => {
-    if (interestStatus === "self") {
-      return null;
-    }
+    if (interestStatus === "self") return null;
 
     if (interestStatus === "accepted") {
       return (
@@ -160,7 +156,7 @@ const MatchProfile = () => {
 
   return (
     <div className="page-fade min-h-screen bg-gradient-to-r from-pink-200 to-purple-200 px-4 py-10">
-      <div className="card-glass p-8 w-full max-w-4xl mx-auto">
+      <div className="card-glass p-8 w-full max-w-6xl mx-auto">
         <div className="flex items-center justify-between gap-3 mb-6">
           <h2 className="text-3xl font-extrabold text-pink-600">
             👤 Match Profile
@@ -170,8 +166,8 @@ const MatchProfile = () => {
           </button>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-6 items-start">
-          <div className="w-full md:w-1/3">
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          <div className="w-full lg:w-1/3">
             <div className="bg-white/70 border border-pink-100 rounded-2xl p-5 text-center">
               {p.photo ? (
                 <img
@@ -186,7 +182,7 @@ const MatchProfile = () => {
                 </div>
               )}
 
-              <h3 className="mt-4 text-xl font-extrabold text-gray-900">
+              <h3 className="mt-4 text-2xl font-extrabold text-gray-900">
                 {p.name}
               </h3>
               <p className="text-gray-700">
@@ -202,28 +198,40 @@ const MatchProfile = () => {
             </div>
           </div>
 
-          <div className="w-full md:w-2/3">
+          <div className="w-full lg:w-2/3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Info label="Phone" value={p.phone} />
               <Info label="Email" value={p.email} />
+              <Info label="Date of Birth" value={p.dob} />
+              <Info label="Age" value={p.age ? `${p.age} yrs` : "-"} />
+              <Info label="Height" value={p.height} />
+              <Info label="Gender" value={p.gender} />
+              <Info label="Marital Status" value={p.maritalStatus} />
+              <Info label="Mother Tongue" value={p.motherTongue} />
+              <Info label="Religion" value={p.religion} />
+              <Info label="Caste" value={p.caste} />
+              <Info label="Sub-Caste" value={p.subCaste} />
               <Info label="Education" value={p.education} />
               <Info label="Occupation" value={p.occupation} />
-              <Info label="Caste" value={p.caste} />
-              <Info label="Mother Tongue" value={p.motherTongue} />
-              <Info label="Marital Status" value={p.maritalStatus} />
+              <Info label="Annual Income" value={p.income} />
               <Info label="Country" value={p.country} />
+              <Info label="State" value={p.state} />
+              <Info label="City" value={p.city} />
+              <Info label="Father Name" value={p.fatherName} />
+              <Info label="Mother Name" value={p.motherName} />
+              <Info label="Siblings" value={p.siblings} />
             </div>
 
-            {p.about && (
-              <div className="mt-6">
-                <h3 className="text-lg font-extrabold text-pink-700 mb-2">
-                  About
-                </h3>
-                <div className="bg-white/70 border border-pink-100 rounded-xl p-4">
-                  <p className="text-gray-800">{p.about}</p>
-                </div>
+            <div className="mt-6">
+              <h3 className="text-lg font-extrabold text-pink-700 mb-2">
+                About
+              </h3>
+              <div className="bg-white/70 border border-pink-100 rounded-xl p-4">
+                <p className="text-gray-800">
+                  {p.about || "No about information added yet."}
+                </p>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -240,7 +248,7 @@ const MiniTag = ({ text }) => (
 const Info = ({ label, value }) => (
   <div className="bg-white/70 border border-pink-100 rounded-xl p-3">
     <p className="text-sm text-pink-700 font-semibold">{label}</p>
-    <p className="text-gray-800">{value || "-"}</p>
+    <p className="text-gray-800 break-words">{value || "-"}</p>
   </div>
 );
 

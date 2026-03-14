@@ -23,6 +23,51 @@ const Chat = () => {
   useEffect(() => {
     if (!loggedUser?._id) return;
 
+    const setOnline = async () => {
+      try {
+        await axios.post(`${API_BASE}/api/users/online`, {
+          userId: loggedUser._id,
+          online: true,
+        });
+      } catch (error) {
+        console.error("Failed to set online status", error);
+      }
+    };
+
+    setOnline();
+
+    const handleBeforeUnload = () => {
+      navigator.sendBeacon(
+        `${API_BASE}/api/users/online`,
+        new Blob(
+          [
+            JSON.stringify({
+              userId: loggedUser._id,
+              online: false,
+            }),
+          ],
+          { type: "application/json" }
+        )
+      );
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+
+      axios
+        .post(`${API_BASE}/api/users/online`, {
+          userId: loggedUser._id,
+          online: false,
+        })
+        .catch(() => {});
+    };
+  }, [loggedUser?._id]);
+
+  useEffect(() => {
+    if (!loggedUser?._id) return;
+
     const interval = setInterval(() => {
       loadChatList();
 
@@ -156,6 +201,18 @@ const Chat = () => {
 
       setMatchedUsers(usersWithLastMessage);
 
+      if (selectedUser?._id) {
+        const refreshedSelected = usersWithLastMessage.find(
+          (u) => u._id === selectedUser._id
+        );
+        if (refreshedSelected) {
+          setSelectedUser((prev) => ({
+            ...prev,
+            ...refreshedSelected,
+          }));
+        }
+      }
+
       const routeSelectedUser = location.state?.selectedUser;
       if (routeSelectedUser?._id && !selectedUser?._id) {
         const matchedRouteUser =
@@ -182,6 +239,20 @@ const Chat = () => {
       );
 
       setMessages(res.data || []);
+
+      const refreshedUser =
+        res.data?.find((msg) => {
+          const senderId = msg.sender?._id || msg.sender;
+          const receiverId = msg.receiver?._id || msg.receiver;
+          return senderId === otherUser._id || receiverId === otherUser._id;
+        }) || null;
+
+      if (shouldSetSelected && refreshedUser) {
+        setSelectedUser((prev) => ({
+          ...prev,
+          ...otherUser,
+        }));
+      }
     } catch (error) {
       console.error("Failed to load messages", error);
       setMessages([]);
@@ -238,6 +309,20 @@ const Chat = () => {
     }
   };
 
+  const getStatusText = (user) => {
+    if (!user) return "";
+
+    if (user.online) {
+      return "🟢 Online";
+    }
+
+    if (user.lastActive) {
+      return "Last seen recently";
+    }
+
+    return "Offline";
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-r from-pink-100 via-rose-50 to-purple-100 p-4 md:p-6">
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -286,6 +371,10 @@ const Chat = () => {
                           )}
                       </div>
 
+                      <p className="text-xs text-gray-500 mb-1">
+                        {user.online ? "🟢 Online" : "Offline"}
+                      </p>
+
                       <p
                         className={`text-sm truncate ${
                           user.unreadCount > 0 &&
@@ -326,6 +415,13 @@ const Chat = () => {
                   </h3>
                   <p className="text-sm text-gray-500">
                     {selectedUser.city || "City not added"}
+                  </p>
+                  <p
+                    className={`text-xs font-medium ${
+                      selectedUser.online ? "text-green-600" : "text-gray-400"
+                    }`}
+                  >
+                    {getStatusText(selectedUser)}
                   </p>
                 </div>
               </div>

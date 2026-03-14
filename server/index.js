@@ -46,6 +46,16 @@ const profileSchema = new mongoose.Schema(
     email: { type: String, unique: true, required: true },
     passwordHash: { type: String, required: true },
     status: { type: String, enum: ["active", "blocked"], default: "active" },
+
+    // ⭐ Online / Last Seen
+    online: {
+      type: Boolean,
+      default: false,
+    },
+    lastActive: {
+      type: Date,
+      default: Date.now,
+    },
   },
   { timestamps: true }
 );
@@ -162,6 +172,8 @@ app.post("/api/register", async (req, res) => {
       ...rest,
       passwordHash,
       status: "active",
+      online: false,
+      lastActive: new Date(),
     });
 
     const user = saved.toObject();
@@ -192,6 +204,10 @@ app.post("/api/login", async (req, res) => {
     if (!ok) {
       return res.status(401).json({ message: "Invalid password" });
     }
+
+    userDoc.online = true;
+    userDoc.lastActive = new Date();
+    await userDoc.save();
 
     const user = userDoc.toObject();
     delete user.passwordHash;
@@ -365,7 +381,7 @@ app.get("/api/interests/inbox/:userId", async (req, res) => {
       .sort({ createdAt: -1 })
       .populate(
         "fromUserId",
-        "name email phone city gender age religion caste photo"
+        "name email phone city gender age religion caste photo online lastActive"
       );
 
     res.json(list);
@@ -383,7 +399,7 @@ app.get("/api/interests/sent/:userId", async (req, res) => {
       .sort({ createdAt: -1 })
       .populate(
         "toUserId",
-        "name email phone city gender age religion caste photo"
+        "name email phone city gender age religion caste photo online lastActive"
       );
 
     res.json(list);
@@ -408,11 +424,11 @@ app.patch("/api/interests/:id", async (req, res) => {
     )
       .populate(
         "fromUserId",
-        "name email phone city gender age religion caste photo"
+        "name email phone city gender age religion caste photo online lastActive"
       )
       .populate(
         "toUserId",
-        "name email phone city gender age religion caste photo"
+        "name email phone city gender age religion caste photo online lastActive"
       );
 
     if (!updated) {
@@ -473,7 +489,7 @@ app.get("/api/shortlist/:userId", async (req, res) => {
       .sort({ createdAt: -1 })
       .populate(
         "profileId",
-        "name age city gender religion caste photo occupation income height"
+        "name age city gender religion caste photo occupation income height online lastActive"
       );
 
     res.json(list);
@@ -497,6 +513,41 @@ app.delete("/api/shortlist/remove", async (req, res) => {
     });
 
     res.json({ message: "Removed from shortlist" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/* =========================
+   ⭐ USER ONLINE STATUS
+========================= */
+
+// ⭐ Update online status
+app.post("/api/users/online", async (req, res) => {
+  try {
+    const { userId, online } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: "userId required" });
+    }
+
+    const updated = await Profile.findByIdAndUpdate(
+      userId,
+      {
+        online,
+        lastActive: new Date(),
+      },
+      { new: true, projection: { passwordHash: 0 } }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({
+      message: "Status updated ✅",
+      user: updated,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -646,7 +697,7 @@ app.get("/api/messages/:senderId/:receiverId", async (req, res) => {
     })
       .sort({ createdAt: 1 })
       .populate("sender", "name photo city")
-      .populate("receiver", "name photo city");
+      .populate("receiver", "name photo city online lastActive");
 
     res.status(200).json(messages);
   } catch (error) {
