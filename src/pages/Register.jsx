@@ -6,9 +6,7 @@ const Register = () => {
   const location = useLocation();
 
   const editData = location.state?.data || null;
-
   const loggedUser = JSON.parse(localStorage.getItem("logged_user") || "null");
-
   const isEditMode = Boolean(editData || loggedUser?._id);
 
   const [showPassword, setShowPassword] = useState(false);
@@ -86,32 +84,37 @@ const Register = () => {
   const [formData, setFormData] = useState(
     editData ||
       JSON.parse(localStorage.getItem("matrimony_draft") || "null") ||
-      loggedUser || {
-        name: "",
-        gender: "",
-        dob: "",
-        age: "",
-        height: "",
-        maritalStatus: "",
-        motherTongue: "",
-        religion: "",
-        caste: "",
-        subCaste: "",
-        education: "",
-        occupation: "",
-        income: "",
-        country: "",
-        state: "",
-        city: "",
-        phone: "",
-        fatherName: "",
-        motherName: "",
-        siblings: "",
-        about: "",
-        photo: "",
-        email: "",
-        password: "",
-      }
+      (loggedUser
+        ? {
+            ...loggedUser,
+            password: "",
+          }
+        : {
+            name: "",
+            gender: "",
+            dob: "",
+            age: "",
+            height: "",
+            maritalStatus: "",
+            motherTongue: "",
+            religion: "",
+            caste: "",
+            subCaste: "",
+            education: "",
+            occupation: "",
+            income: "",
+            country: "",
+            state: "",
+            city: "",
+            phone: "",
+            fatherName: "",
+            motherName: "",
+            siblings: "",
+            about: "",
+            photo: "",
+            email: "",
+            password: "",
+          })
   );
 
   const calculateAge = (dob) => {
@@ -158,14 +161,12 @@ const Register = () => {
     if (!file) return;
 
     const reader = new FileReader();
-
     reader.onloadend = () => {
       setFormData((prev) => ({
         ...prev,
         photo: reader.result,
       }));
     };
-
     reader.readAsDataURL(file);
   };
 
@@ -191,7 +192,7 @@ const Register = () => {
       return;
     }
 
-    navigate("/profile-preview", { state: { data: formData } });
+    navigate("/preview", { state: { data: formData } });
   };
 
   return (
@@ -201,6 +202,21 @@ const Register = () => {
           💖 Create Your Matrimony Profile
         </h2>
 
+        <p className="text-center text-gray-600 mb-8 text-sm md:text-base">
+          Complete your profile with accurate details to find the right match.
+        </p>
+
+        {formData.photo && (
+          <div className="flex justify-center mb-6">
+            <img
+              src={formData.photo}
+              alt="preview"
+              className="w-24 h-24 rounded-full object-cover border-4 border-pink-500 shadow-lg"
+              onError={(e) => (e.currentTarget.style.display = "none")}
+            />
+          </div>
+        )}
+
         <form
           onSubmit={handleSubmit}
           className="grid grid-cols-1 md:grid-cols-2 gap-6"
@@ -208,6 +224,7 @@ const Register = () => {
           <Input
             label="Full Name"
             name="name"
+            placeholder="Enter full name"
             value={formData.name}
             onChange={handleChange}
           />
@@ -222,10 +239,9 @@ const Register = () => {
           />
 
           <div>
-            <label className="block text-sm font-semibold mb-2">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
               Date of Birth
             </label>
-
             <input
               type="date"
               name="dob"
@@ -235,12 +251,18 @@ const Register = () => {
               className="input-soft"
               required
             />
+            <p className="text-xs text-pink-600 mt-2">
+              Only users aged 18 and above can register.
+            </p>
           </div>
 
           <Input
             label="Age"
+            type="text"
             name="age"
-            value={formData.age}
+            placeholder="Age"
+            value={formData.age || ""}
+            onChange={() => {}}
             readOnly
             bgClass="bg-gray-100"
           />
@@ -254,40 +276,203 @@ const Register = () => {
             onChange={handleChange}
           />
 
+          <Select
+            label="Marital Status"
+            name="maritalStatus"
+            value={formData.maritalStatus}
+            placeholder="Select Marital Status"
+            options={["Never Married", "Divorced", "Widowed"]}
+            onChange={handleChange}
+          />
+
+          <Select
+            label="Mother Tongue"
+            name="motherTongue"
+            value={formData.motherTongue}
+            placeholder="Select Mother Tongue"
+            options={motherTongueOptions}
+            onChange={handleChange}
+          />
+
+          <Select
+            label="Religion"
+            name="religion"
+            value={formData.religion}
+            placeholder="Select Religion"
+            options={religionOptions}
+            onChange={handleChange}
+          />
+
+          <Select
+            label="Caste"
+            name="caste"
+            value={formData.caste}
+            placeholder="Select Caste"
+            options={casteOptions}
+            onChange={handleChange}
+          />
+
+          <Input
+            label="Sub-Caste"
+            name="subCaste"
+            placeholder="Enter sub-caste"
+            value={formData.subCaste}
+            onChange={handleChange}
+          />
+
+          <Input
+            label="Education"
+            name="education"
+            placeholder="Enter education"
+            value={formData.education}
+            onChange={handleChange}
+          />
+
+          <Input
+            label="Occupation"
+            name="occupation"
+            placeholder="Enter occupation"
+            value={formData.occupation}
+            onChange={handleChange}
+          />
+
+          <Input
+            label="Annual Income"
+            name="income"
+            placeholder="Enter annual income"
+            value={formData.income}
+            onChange={handleChange}
+          />
+
+          <Select
+            label="Country"
+            name="country"
+            value={formData.country}
+            placeholder="Select Country"
+            options={countryOptions}
+            onChange={handleChange}
+          />
+
+          <Select
+            label="State"
+            name="state"
+            value={formData.state}
+            placeholder="Select State"
+            options={stateOptions}
+            onChange={handleChange}
+          />
+
           <Input
             label="City"
             name="city"
+            placeholder="Enter city"
             value={formData.city}
             onChange={handleChange}
           />
 
           <Input
-            label="Phone"
+            label="Phone Number"
+            type="tel"
             name="phone"
+            placeholder="Enter phone number"
             value={formData.phone}
             onChange={handleChange}
           />
 
           <Input
-            label="Email"
-            name="email"
-            value={formData.email}
+            label="Father Name"
+            name="fatherName"
+            placeholder="Enter father name"
+            value={formData.fatherName}
             onChange={handleChange}
           />
 
-          {!isEditMode && (
-            <PasswordInput
-              showPassword={showPassword}
-              setShowPassword={setShowPassword}
-              value={formData.password}
-              onChange={handleChange}
+          <Input
+            label="Mother Name"
+            name="motherName"
+            placeholder="Enter mother name"
+            value={formData.motherName}
+            onChange={handleChange}
+          />
+
+          <Input
+            label="Number of Siblings"
+            name="siblings"
+            placeholder="Enter number of siblings"
+            value={formData.siblings}
+            onChange={handleChange}
+          />
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Profile Photo
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="input-soft"
             />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              About Me
+            </label>
+            <textarea
+              name="about"
+              placeholder="Write something about yourself"
+              className="input-soft w-full"
+              rows="3"
+              value={formData.about}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Email
+            </label>
+            <input
+              type="email"
+              name="email"
+              placeholder="Enter Gmail address"
+              value={formData.email}
+              onChange={handleChange}
+              className="input-soft"
+              pattern="^[a-zA-Z0-9._%+-]+@gmail\.com$"
+              title="Only Gmail addresses are allowed"
+              required
+            />
+          </div>
+
+          {!isEditMode && (
+            <div className="relative w-full">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Password
+              </label>
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                placeholder="Enter password"
+                value={formData.password}
+                onChange={handleChange}
+                className="input-soft w-full pr-24 password-input"
+                required
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-4 top-[42px] text-sm font-semibold text-pink-600 hover:text-pink-700 z-10 bg-transparent border-none"
+              >
+                {showPassword ? "Hide" : "View"}
+              </button>
+            </div>
           )}
 
-          <button
-            type="submit"
-            className="btn-primary md:col-span-2 w-full"
-          >
+          <button type="submit" className="btn-primary md:col-span-2 w-full">
             Preview Profile ✅
           </button>
         </form>
@@ -296,12 +481,24 @@ const Register = () => {
   );
 };
 
-const Input = ({ label, name, value, onChange, readOnly = false, bgClass = "" }) => (
+const Input = ({
+  label,
+  type = "text",
+  name,
+  placeholder,
+  value,
+  onChange,
+  readOnly = false,
+  bgClass = "",
+}) => (
   <div>
-    <label className="block text-sm font-semibold mb-2">{label}</label>
+    <label className="block text-sm font-semibold text-gray-700 mb-2">
+      {label}
+    </label>
     <input
-      type="text"
+      type={type}
       name={name}
+      placeholder={placeholder}
       value={value}
       onChange={onChange}
       readOnly={readOnly}
@@ -313,7 +510,9 @@ const Input = ({ label, name, value, onChange, readOnly = false, bgClass = "" })
 
 const Select = ({ label, name, value, options, onChange, placeholder }) => (
   <div>
-    <label className="block text-sm font-semibold mb-2">{label}</label>
+    <label className="block text-sm font-semibold text-gray-700 mb-2">
+      {label}
+    </label>
     <select
       name={name}
       value={value}
@@ -331,26 +530,4 @@ const Select = ({ label, name, value, options, onChange, placeholder }) => (
   </div>
 );
 
-const PasswordInput = ({ showPassword, setShowPassword, value, onChange }) => (
-  <div className="relative w-full">
-    <label className="block text-sm font-semibold mb-2">Password</label>
-
-    <input
-      type={showPassword ? "text" : "password"}
-      name="password"
-      value={value}
-      onChange={onChange}
-      className="input-soft w-full pr-24"
-      required
-    />
-
-    <button
-      type="button"
-      onClick={() => setShowPassword((prev) => !prev)}
-      className="absolute right-4 top-[42px] text-sm font-semibold text-pink-600"
-    >
-      {showPassword ? "Hide" : "View"}
-    </button>
-  </div>
-);
 export default Register;
