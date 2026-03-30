@@ -15,6 +15,7 @@ const Matches = () => {
   const [acceptedMatchIds, setAcceptedMatchIds] = useState([]);
   const [shortlistedIds, setShortlistedIds] = useState([]);
   const [shortlistingId, setShortlistingId] = useState("");
+  const [removingShortlistId, setRemovingShortlistId] = useState("");
 
   const [filters, setFilters] = useState({
     q: "",
@@ -89,9 +90,7 @@ const Matches = () => {
         return;
       }
 
-      if (shortlistedIds.includes(profileId)) {
-        return;
-      }
+      if (shortlistedIds.includes(profileId)) return;
 
       setShortlistingId(profileId);
 
@@ -112,6 +111,38 @@ const Matches = () => {
       );
     } finally {
       setShortlistingId("");
+    }
+  };
+
+  const removeFromShortlist = async (profileId) => {
+    try {
+      if (!loggedUser?._id) {
+        alert("Please login again");
+        navigate("/login");
+        return;
+      }
+
+      setRemovingShortlistId(profileId);
+
+      const res = await axios.delete(`${API_BASE}/api/shortlist/remove`, {
+        data: {
+          userId: loggedUser._id,
+          profileId,
+        },
+      });
+
+      setShortlistedIds((prev) => prev.filter((id) => id !== profileId));
+
+      alert(res.data?.message || "Removed from shortlist ❌");
+    } catch (err) {
+      console.error("Shortlist remove error:", err);
+      alert(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to remove shortlist ❌"
+      );
+    } finally {
+      setRemovingShortlistId("");
     }
   };
 
@@ -366,7 +397,9 @@ const Matches = () => {
                       navigate("/chat", { state: { selectedUser: p } })
                     }
                     onShortlist={() => addToShortlist(p._id)}
+                    onRemoveShortlist={() => removeFromShortlist(p._id)}
                     shortlisting={shortlistingId === p._id}
+                    removingShortlist={removingShortlistId === p._id}
                   />
                 ))}
               </div>
@@ -384,7 +417,9 @@ const ListCard = ({
   onMessage,
   canMessage,
   onShortlist,
+  onRemoveShortlist,
   shortlisting,
+  removingShortlist,
   isShortlisted,
 }) => {
   return (
@@ -426,17 +461,18 @@ const ListCard = ({
           <Mini label="Income" value={p.income} />
         </div>
 
-        <div className="lg:ml-auto flex flex-col sm:flex-row lg:flex-col gap-2 lg:min-w-[150px]">
+        <div className="lg:ml-auto flex flex-col sm:flex-row lg:flex-col gap-2 lg:min-w-[170px]">
           <button onClick={onView} className="btn-primary w-full">
             View Profile
           </button>
 
           {isShortlisted ? (
             <button
-              className="w-full px-4 py-3 rounded-2xl font-bold bg-pink-100 text-pink-600 border border-pink-200 cursor-not-allowed"
-              disabled
+              onClick={onRemoveShortlist}
+              className="w-full px-4 py-3 rounded-2xl font-bold bg-pink-100 text-pink-600 border border-pink-200 hover:bg-pink-200 transition"
+              disabled={removingShortlist}
             >
-              ✅ Shortlisted
+              {removingShortlist ? "Removing..." : "❌ Remove Shortlist"}
             </button>
           ) : (
             <button

@@ -60,7 +60,7 @@ const profileSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Profile = mongoose.model("Profile", profileSchema);
+const Profile = mongoose.models.Profile || mongoose.model("Profile", profileSchema);
 
 /* =========================
    ✅ Interest Schema
@@ -88,7 +88,8 @@ const interestSchema = new mongoose.Schema(
 
 interestSchema.index({ fromUserId: 1, toUserId: 1 }, { unique: true });
 
-const Interest = mongoose.model("Interest", interestSchema);
+const Interest =
+  mongoose.models.Interest || mongoose.model("Interest", interestSchema);
 
 /* =========================
    ✅ Message Schema
@@ -118,7 +119,7 @@ const messageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Message = mongoose.model("Message", messageSchema);
+const Message = mongoose.models.Message || mongoose.model("Message", messageSchema);
 
 /* =========================
    ⭐ Shortlist Schema
@@ -141,7 +142,33 @@ const shortlistSchema = new mongoose.Schema(
 
 shortlistSchema.index({ userId: 1, profileId: 1 }, { unique: true });
 
-const Shortlist = mongoose.model("Shortlist", shortlistSchema);
+const Shortlist =
+  mongoose.models.Shortlist || mongoose.model("Shortlist", shortlistSchema);
+
+/* =========================
+   👀 Profile View Schema
+========================= */
+const profileViewSchema = new mongoose.Schema(
+  {
+    viewerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Profile",
+      required: true,
+    },
+    profileOwnerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Profile",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+profileViewSchema.index({ viewerId: 1, profileOwnerId: 1 }, { unique: true });
+
+const ProfileView =
+  mongoose.models.ProfileView ||
+  mongoose.model("ProfileView", profileViewSchema);
 
 /* =========================
    ✅ Health
@@ -277,15 +304,34 @@ app.get("/api/profiles/:id", async (req, res) => {
   }
 });
 
+// ✅ Get profile by email
+app.get("/api/profile-by-email/:email", async (req, res) => {
+  try {
+    const user = await Profile.findOne(
+      { email: req.params.email },
+      { passwordHash: 0 }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 // ✅ Admin update user profile (no password)
-app.patch("/api/profiles/:id", async (req, res) => {
+app.put("/api/profiles/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { password, passwordHash, ...updates } = req.body;
+    const { password, passwordHash, _id, ...updates } = req.body;
 
     const updated = await Profile.findByIdAndUpdate(id, updates, {
       new: true,
       projection: { passwordHash: 0 },
+      runValidators: true,
     });
 
     if (!updated) {
@@ -513,6 +559,74 @@ app.delete("/api/shortlist/remove", async (req, res) => {
     });
 
     res.json({ message: "Removed from shortlist" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/* =========================
+   👀 PROFILE VIEW SYSTEM
+========================= */
+
+// 👀 Add / update profile view
+app.post("/api/profile-views/add", async (req, res) => {
+  try {
+    const { viewerId, profileOwnerId } = req.body;
+
+    if (!viewerId || !profileOwnerId) {
+      return res
+        .status(400)
+        .json({ message: "viewerId and profileOwnerId required" });
+    }
+
+    if (viewerId === profileOwnerId) {
+      return res
+        .status(400)
+        .json({ message: "You cannot view your own profile as a viewer" });
+    }
+
+    const viewer = await Profile.findById(viewerId);
+    const owner = await Profile.findById(profileOwnerId);
+
+    if (!viewer || !owner) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const existing = await ProfileView.findOne({
+      viewerId,
+      profileOwnerId,
+    });
+
+    if (existing) {
+      existing.updatedAt = new Date();
+      await existing.save();
+      return res.json({ message: "Profile view updated 👀", view: existing });
+    }
+
+    const view = await ProfileView.create({
+      viewerId,
+      profileOwnerId,
+    });
+
+    res.json({ message: "Profile view added 👀", view });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 👀 Get viewers for profile owner
+app.get("/api/profile-views/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const list = await ProfileView.find({ profileOwnerId: userId })
+      .sort({ updatedAt: -1 })
+      .populate(
+        "viewerId",
+        "name age city gender religion caste photo occupation online lastActive"
+      );
+
+    res.json(list);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

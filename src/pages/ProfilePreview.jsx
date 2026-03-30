@@ -11,6 +11,7 @@ const ProfilePreview = () => {
   const navigate = useNavigate();
 
   const data =
+    location.state?.data ||
     location.state ||
     JSON.parse(localStorage.getItem("matrimony_draft") || "null") ||
     {};
@@ -26,13 +27,21 @@ const ProfilePreview = () => {
       setSaving(true);
 
       if (isEdit) {
-        // ✅ UPDATE existing user (no register again)
-        const res = await axios.patch(`${API_BASE}/api/profiles/${loggedUser._id}`, {
-          ...data,
-          // ❌ don't send password fields
-          password: undefined,
-          passwordHash: undefined,
-        });
+        // ✅ clean update payload
+        const {
+          _id,
+          password,
+          passwordHash,
+          createdAt,
+          updatedAt,
+          __v,
+          ...cleanData
+        } = data;
+
+        const res = await axios.put(
+          `${API_BASE}/api/profiles/${loggedUser._id}`,
+          cleanData
+        );
 
         alert("Profile updated ✅");
 
@@ -90,11 +99,27 @@ const ProfilePreview = () => {
               <Info label="Gender" value={data.gender} />
               <Info label="Age" value={data.age} />
               <Info label="Religion" value={data.religion} />
+              <Info label="Height" value={data.height} />
+              <Info label="Marital Status" value={data.maritalStatus} />
+              <Info label="Mother Tongue" value={data.motherTongue} />
+              <Info label="Caste" value={data.caste} />
+              <Info label="Sub Caste" value={data.subCaste} />
+              <Info label="Education" value={data.education} />
+              <Info label="Occupation" value={data.occupation} />
+              <Info label="Income" value={data.income} />
+              <Info label="Country" value={data.country} />
+              <Info label="State" value={data.state} />
+              <Info label="Father Name" value={data.fatherName} />
+              <Info label="Mother Name" value={data.motherName} />
+              <Info label="Siblings" value={data.siblings} />
+              <Info label="About" value={data.about} />
             </div>
 
             <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
-                onClick={() => navigate("/register", { state: { mode: "edit", data } })}
+                onClick={() =>
+                  navigate("/register", { state: { mode: "edit", data } })
+                }
                 className="btn-outline w-full"
                 disabled={saving}
               >
@@ -125,7 +150,7 @@ const ProfilePreview = () => {
 const Info = ({ label, value }) => (
   <div className="bg-white/70 border border-pink-100 rounded-xl p-3">
     <p className="text-sm text-pink-700 font-semibold">{label}</p>
-    <p className="text-gray-800">{value || "-"}</p>
+    <p className="text-gray-800 break-words">{value || "-"}</p>
   </div>
 );
 

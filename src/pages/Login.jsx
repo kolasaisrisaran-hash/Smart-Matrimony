@@ -14,20 +14,34 @@ const Login = () => {
 
   const isAuth = useSelector((state) => state.auth.isAuthenticated);
 
-  useEffect(() => {
-    if (isAuth) navigate("/dashboard", { replace: true });
-  }, [isAuth, navigate]);
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+  });
 
-  const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  useEffect(() => {
+    const savedUser = JSON.parse(localStorage.getItem("logged_user") || "null");
+
+    if (isAuth || savedUser?._id) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isAuth, navigate]);
+
   const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
       setLoading(true);
 
@@ -36,9 +50,14 @@ const Login = () => {
         password: form.password,
       });
 
-      localStorage.setItem("logged_user", JSON.stringify(res.data.user));
-      dispatch(loginSuccess(res.data.user));
+      const user = res.data.user;
 
+      localStorage.setItem("logged_user", JSON.stringify(user));
+      localStorage.setItem("matrimony_profile", JSON.stringify(user));
+
+      dispatch(loginSuccess(user));
+
+      alert("Login success ✅");
       navigate("/dashboard", { replace: true });
     } catch (err) {
       alert(err?.response?.data?.message || err?.message || "Login failed ❌");

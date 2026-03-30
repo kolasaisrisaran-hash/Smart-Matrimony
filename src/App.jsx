@@ -30,6 +30,7 @@ function App() {
       {/* Public */}
       <Route path="/register" element={<Register />} />
       <Route path="/preview" element={<ProfilePreview />} />
+      <Route path="/profile-preview" element={<ProfilePreview />} />
       <Route path="/login" element={<Login />} />
 
       {/* User Dashboard */}
