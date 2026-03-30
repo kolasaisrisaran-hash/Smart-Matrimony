@@ -14,6 +14,7 @@ const ProfilePreview = () => {
     location.state?.data ||
     location.state ||
     JSON.parse(localStorage.getItem("matrimony_draft") || "null") ||
+    JSON.parse(localStorage.getItem("matrimony_profile") || "null") ||
     {};
 
   const [saving, setSaving] = useState(false);
@@ -48,6 +49,7 @@ const ProfilePreview = () => {
         const updatedUser = res.data.user;
         localStorage.setItem("logged_user", JSON.stringify(updatedUser));
         localStorage.setItem("matrimony_profile", JSON.stringify(updatedUser));
+        localStorage.setItem("matrimony_draft", JSON.stringify(updatedUser));
       } else {
         // ✅ NEW REGISTER
         const res = await axios.post(`${API_BASE}/api/register`, {
@@ -58,15 +60,20 @@ const ProfilePreview = () => {
         alert("Registered in MongoDB ✅");
         localStorage.setItem("matrimony_profile", JSON.stringify(res.data.user));
         localStorage.setItem("logged_user", JSON.stringify(res.data.user));
+        localStorage.setItem("matrimony_draft", JSON.stringify(res.data.user));
       }
 
-      localStorage.removeItem("matrimony_draft");
       navigate("/dashboard");
     } catch (err) {
       alert(err?.response?.data?.message || err?.message || "Save failed ❌");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleEdit = () => {
+    localStorage.setItem("matrimony_draft", JSON.stringify(data));
+    navigate("/register", { state: { mode: "edit", data } });
   };
 
   return (
@@ -97,11 +104,12 @@ const ProfilePreview = () => {
               <Info label="Phone" value={data.phone} />
               <Info label="City" value={data.city} />
               <Info label="Gender" value={data.gender} />
+              <Info label="Date of Birth" value={data.dob} />
               <Info label="Age" value={data.age} />
-              <Info label="Religion" value={data.religion} />
               <Info label="Height" value={data.height} />
               <Info label="Marital Status" value={data.maritalStatus} />
               <Info label="Mother Tongue" value={data.motherTongue} />
+              <Info label="Religion" value={data.religion} />
               <Info label="Caste" value={data.caste} />
               <Info label="Sub Caste" value={data.subCaste} />
               <Info label="Education" value={data.education} />
@@ -117,9 +125,7 @@ const ProfilePreview = () => {
 
             <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
-                onClick={() =>
-                  navigate("/register", { state: { mode: "edit", data } })
-                }
+                onClick={handleEdit}
                 className="btn-outline w-full"
                 disabled={saving}
               >
