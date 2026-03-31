@@ -2,12 +2,18 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Loader from "../components/Loader";
 import { useNavigate } from "react-router-dom";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+import API_BASE from "../utils/api";
 
 const Matches = () => {
   const navigate = useNavigate();
   const loggedUser = JSON.parse(localStorage.getItem("logged_user") || "null");
+
+  const oppositeGender =
+    loggedUser?.gender === "Male"
+      ? "Female"
+      : loggedUser?.gender === "Female"
+      ? "Male"
+      : "";
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -19,7 +25,7 @@ const Matches = () => {
 
   const [filters, setFilters] = useState({
     q: "",
-    gender: "",
+    gender: oppositeGender,
     minAge: "",
     maxAge: "",
     city: "",
@@ -81,6 +87,13 @@ const Matches = () => {
     loadProfiles(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    setFilters((prev) => ({
+      ...prev,
+      gender: prev.gender || oppositeGender,
+    }));
+  }, [oppositeGender]);
 
   const addToShortlist = async (profileId) => {
     try {
@@ -153,7 +166,7 @@ const Matches = () => {
   const clearFilters = () => {
     setFilters({
       q: "",
-      gender: "",
+      gender: oppositeGender,
       minAge: "",
       maxAge: "",
       city: "",
@@ -167,7 +180,9 @@ const Matches = () => {
     const q = filters.q.trim().toLowerCase();
 
     const out = profiles.filter((p) => {
-      if (filters.gender && p.gender !== filters.gender) return false;
+      const effectiveGender = filters.gender || oppositeGender;
+
+      if (effectiveGender && p.gender !== effectiveGender) return false;
 
       const age = Number(p.age || 0);
       if (filters.minAge && age < Number(filters.minAge)) return false;
@@ -219,10 +234,11 @@ const Matches = () => {
     }
 
     return out;
-  }, [profiles, filters]);
+  }, [profiles, filters, oppositeGender]);
 
   const activeFilterChips = [
-    filters.gender && `Gender: ${filters.gender}`,
+    (filters.gender || oppositeGender) &&
+      `Gender: ${filters.gender || oppositeGender}`,
     filters.minAge && `Min Age: ${filters.minAge}`,
     filters.maxAge && `Max Age: ${filters.maxAge}`,
     filters.city && `City: ${filters.city}`,
@@ -230,6 +246,10 @@ const Matches = () => {
     filters.caste && `Caste: ${filters.caste}`,
     filters.q && `Search: ${filters.q}`,
   ].filter(Boolean);
+
+  const matchesHeadingText = oppositeGender
+    ? `Showing ${oppositeGender} Matches`
+    : "Showing All Matches";
 
   return (
     <div className="page-fade min-h-screen bg-gradient-to-r from-pink-200 to-purple-200 px-4 py-10">
@@ -243,6 +263,18 @@ const Matches = () => {
               <p className="text-gray-700 mt-1">
                 Explore compatible profiles and connect with the right match.
               </p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="bg-white/80 text-pink-700 px-3 py-2 rounded-full text-sm font-bold border border-pink-200">
+                  {matchesHeadingText}
+                </span>
+
+                {loggedUser?.gender && (
+                  <span className="bg-pink-100 text-pink-700 px-3 py-2 rounded-full text-sm font-bold border border-pink-200">
+                    Your Gender: {loggedUser.gender}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -300,7 +332,7 @@ const Matches = () => {
                   onChange={handleChange}
                   className="input-soft"
                 >
-                  <option value="">Gender (Any)</option>
+                  <option value="">Gender (Default Match Logic)</option>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                 </select>
