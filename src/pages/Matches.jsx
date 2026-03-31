@@ -163,6 +163,13 @@ const Matches = () => {
     setFilters((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const handleGenderToggle = (gender) => {
+    setFilters((prev) => ({
+      ...prev,
+      gender,
+    }));
+  };
+
   const clearFilters = () => {
     setFilters({
       q: "",
@@ -281,6 +288,28 @@ const Matches = () => {
               <span className="bg-pink-100 text-pink-700 px-3 py-2 rounded-full text-sm font-bold border border-pink-200">
                 {filtered.length} Profiles
               </span>
+
+              <button
+                onClick={() => handleGenderToggle("Male")}
+                className={`px-4 py-2 rounded-full text-sm font-bold border ${
+                  filters.gender === "Male"
+                    ? "bg-blue-500 text-white border-blue-500"
+                    : "bg-white text-blue-600 border-blue-200"
+                }`}
+              >
+                ♂ Male
+              </button>
+
+              <button
+                onClick={() => handleGenderToggle("Female")}
+                className={`px-4 py-2 rounded-full text-sm font-bold border ${
+                  filters.gender === "Female"
+                    ? "bg-pink-500 text-white border-pink-500"
+                    : "bg-white text-pink-600 border-pink-200"
+                }`}
+              >
+                ♀ Female
+              </button>
 
               <button
                 onClick={() => loadProfiles(true)}
