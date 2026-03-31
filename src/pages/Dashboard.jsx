@@ -3,8 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../redux/authSlice";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+import API_BASE from "../utils/api";
 
 const Dashboard = () => {
   const dispatch = useDispatch();
@@ -15,19 +14,6 @@ const Dashboard = () => {
   const user = reduxUser || storedUser;
 
   const [totalUnread, setTotalUnread] = useState(0);
-
-  useEffect(() => {
-    if (!user?._id) return;
-
-    fetchUnreadCount();
-
-    const interval = setInterval(() => {
-      fetchUnreadCount();
-    }, 5000);
-
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?._id]);
 
   const fetchUnreadCount = async () => {
     try {
@@ -43,8 +29,21 @@ const Dashboard = () => {
       setTotalUnread(total);
     } catch (error) {
       console.error("Failed to fetch unread count", error);
+      setTotalUnread(0);
     }
   };
+
+  useEffect(() => {
+    if (!user?._id) return;
+
+    fetchUnreadCount();
+
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [user?._id]);
 
   const profileFields = useMemo(
     () => [
@@ -102,7 +101,10 @@ const Dashboard = () => {
           <p className="text-lg font-semibold mb-4">
             Session expired. Please login again.
           </p>
-          <button onClick={() => navigate("/login")} className="btn-primary w-full">
+          <button
+            onClick={() => navigate("/login")}
+            className="btn-primary w-full"
+          >
             Go to Login
           </button>
         </div>
@@ -113,6 +115,8 @@ const Dashboard = () => {
   const handleLogout = () => {
     dispatch(logout());
     localStorage.removeItem("logged_user");
+    localStorage.removeItem("matrimony_profile");
+    localStorage.removeItem("matrimony_draft");
     navigate("/login");
   };
 
@@ -157,15 +161,24 @@ const Dashboard = () => {
           </div>
 
           <div className="mt-8 space-y-3">
-            <button onClick={() => navigate("/matches")} className="btn-primary w-full">
+            <button
+              onClick={() => navigate("/matches")}
+              className="btn-primary w-full"
+            >
               💞 Open Matches
             </button>
 
-            <button onClick={() => navigate("/interests")} className="btn-outline w-full">
+            <button
+              onClick={() => navigate("/interests")}
+              className="btn-outline w-full"
+            >
               ❤️ Interests
             </button>
 
-            <button onClick={() => navigate("/chat")} className="btn-outline w-full">
+            <button
+              onClick={() => navigate("/chat")}
+              className="btn-outline w-full"
+            >
               {totalUnread > 0 ? `💬 Chats 🔴 ${totalUnread}` : "💬 Chats"}
             </button>
 
