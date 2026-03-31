@@ -19,16 +19,16 @@ const ProfilePreview = () => {
 
   const [saving, setSaving] = useState(false);
 
-  // ✅ if user already exists (logged_user has _id) => EDIT MODE
+  // ✅ If logged user exists OR preview data already has _id => EDIT MODE
   const loggedUser = JSON.parse(localStorage.getItem("logged_user") || "null");
-  const isEdit = Boolean(loggedUser?._id);
+  const isEdit = Boolean(loggedUser?._id || data?._id);
 
   const handleConfirm = async () => {
     try {
       setSaving(true);
 
       if (isEdit) {
-        // ✅ clean update payload
+        // ✅ Update existing profile
         const {
           _id,
           password,
@@ -39,8 +39,10 @@ const ProfilePreview = () => {
           ...cleanData
         } = data;
 
+        const profileId = loggedUser?._id || data?._id;
+
         const res = await axios.put(
-          `${API_BASE}/api/profiles/${loggedUser._id}`,
+          `${API_BASE}/api/profiles/${profileId}`,
           cleanData
         );
 
@@ -51,9 +53,18 @@ const ProfilePreview = () => {
         localStorage.setItem("matrimony_profile", JSON.stringify(updatedUser));
         localStorage.setItem("matrimony_draft", JSON.stringify(updatedUser));
       } else {
-        // ✅ NEW REGISTER
+        // ✅ Register new user safely without Mongo-only fields
+        const {
+          _id,
+          passwordHash,
+          createdAt,
+          updatedAt,
+          __v,
+          ...registerData
+        } = data;
+
         const res = await axios.post(`${API_BASE}/api/register`, {
-          ...data,
+          ...registerData,
           password: data.password,
         });
 
