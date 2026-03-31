@@ -177,6 +177,13 @@ const Register = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    const emailValue = (formData.email || "").trim().toLowerCase();
+
+    if (!emailValue.endsWith("@gmail.com")) {
+      alert("Only Gmail addresses are allowed");
+      return;
+    }
+
     if (!formData.dob) {
       alert("Please select Date of Birth");
       return;
@@ -192,7 +199,14 @@ const Register = () => {
       return;
     }
 
-    navigate("/preview", { state: { data: formData } });
+    navigate("/preview", {
+      state: {
+        data: {
+          ...formData,
+          email: emailValue,
+        },
+      },
+    });
   };
 
   return (
@@ -441,7 +455,6 @@ const Register = () => {
               value={formData.email}
               onChange={handleChange}
               className="input-soft"
-              pattern="^[a-zA-Z0-9._%+-]+@gmail\.com$"
               title="Only Gmail addresses are allowed"
               required
             />
