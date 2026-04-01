@@ -291,24 +291,32 @@ const Matches = () => {
 
               <button
                 onClick={() => handleGenderToggle("Male")}
-                className={`px-4 py-2 rounded-full text-sm font-bold border ${
+                className={`group relative overflow-hidden px-4 py-2 rounded-full text-sm font-bold border backdrop-blur-md transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-105 active:scale-95 ${
                   filters.gender === "Male"
-                    ? "bg-blue-500 text-white border-blue-500"
-                    : "bg-white text-blue-600 border-blue-200"
+                    ? "bg-gradient-to-r from-blue-500/90 to-cyan-500/90 text-white border-blue-400 shadow-[0_8px_24px_rgba(59,130,246,0.35)]"
+                    : "bg-white/35 text-blue-700 border-white/40 shadow-[0_8px_20px_rgba(255,255,255,0.18)] hover:bg-white/50"
                 }`}
               >
-                ♂ Male
+                <span className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <span className="absolute -top-8 -left-8 h-16 w-16 rounded-full bg-white/25 blur-xl group-hover:scale-125 transition duration-500" />
+                <span className="relative z-10 flex items-center gap-2">
+                  ♂ Male
+                </span>
               </button>
 
               <button
                 onClick={() => handleGenderToggle("Female")}
-                className={`px-4 py-2 rounded-full text-sm font-bold border ${
+                className={`group relative overflow-hidden px-4 py-2 rounded-full text-sm font-bold border backdrop-blur-md transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-105 active:scale-95 ${
                   filters.gender === "Female"
-                    ? "bg-pink-500 text-white border-pink-500"
-                    : "bg-white text-pink-600 border-pink-200"
+                    ? "bg-gradient-to-r from-pink-500/90 to-rose-500/90 text-white border-pink-400 shadow-[0_8px_24px_rgba(236,72,153,0.35)]"
+                    : "bg-white/35 text-pink-700 border-white/40 shadow-[0_8px_20px_rgba(255,255,255,0.18)] hover:bg-white/50"
                 }`}
               >
-                ♀ Female
+                <span className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <span className="absolute -top-8 -left-8 h-16 w-16 rounded-full bg-white/25 blur-xl group-hover:scale-125 transition duration-500" />
+                <span className="relative z-10 flex items-center gap-2">
+                  ♀ Female
+                </span>
               </button>
 
               <button
