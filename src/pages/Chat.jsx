@@ -1,93 +1,166 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import API_BASE from "../utils/api";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const ONLINE_RECENT_MS = 2 * 60 * 1000;
 
 const Chat = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const loggedUser = JSON.parse(localStorage.getItem("logged_user") || "null");
 
-  const [matchedUsers, setMatchedUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [text, setText] = useState("");
-  const [unreadMap, setUnreadMap] = useState({});
+  const routeSelectedUserRef = useRef(location.state?.selectedUser || null);
+  const handledRouteRef = useRef(false);
+  const pollRef = useRef(null);
+  const currentRequestRef = useRef(0);
   const messagesEndRef = useRef(null);
 
-  useEffect(() => {
-    loadChatList();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const [sidebarUsers, setSidebarUsers] = useState([]);
+  const [selectedChatId, setSelectedChatId] = useState(
+    routeSelectedUserRef.current?._id || null
+  );
+  const [selectedChatUser, setSelectedChatUser] = useState(
+    routeSelectedUserRef.current || null
+  );
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
+  const [searchText, setSearchText] = useState("");
+  const [pageLoading, setPageLoading] = useState(true);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sidebarRefreshing, setSidebarRefreshing] = useState(false);
 
   useEffect(() => {
     if (!loggedUser?._id) return;
 
-    const setOnline = async () => {
-      try {
-        await axios.post(`${API_BASE}/api/users/online`, {
-          userId: loggedUser._id,
-          online: true,
-        });
-      } catch (error) {
-        console.error("Failed to set online status", error);
-      }
+    const init = async () => {
+      setPageLoading(true);
+      await loadSidebar(true);
+      setPageLoading(false);
     };
 
-    setOnline();
+    init();
+    updatePresence(true);
 
     const handleBeforeUnload = () => {
-      navigator.sendBeacon(
-        `${API_BASE}/api/users/online`,
-        new Blob(
-          [
-            JSON.stringify({
-              userId: loggedUser._id,
-              online: false,
-            }),
-          ],
-          { type: "application/json" }
-        )
-      );
+      sendPresenceBeacon(false);
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
-
-      axios
-        .post(`${API_BASE}/api/users/online`, {
-          userId: loggedUser._id,
-          online: false,
-        })
-        .catch(() => {});
+      updatePresence(false);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedUser?._id]);
 
   useEffect(() => {
     if (!loggedUser?._id) return;
 
-    const interval = setInterval(() => {
-      loadChatList();
+    pollRef.current = setInterval(async () => {
+      await loadSidebar(false);
 
-      if (selectedUser?._id) {
-        fetchMessages(selectedUser, false);
+      if (selectedChatId) {
+        await loadMessages(selectedChatId, false, true);
       }
-    }, 3000);
+    }, 4000);
 
-    return () => clearInterval(interval);
+    return () => clearInterval(pollRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedUser?._id, loggedUser?._id]);
+  }, [loggedUser?._id, selectedChatId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const sendPresenceBeacon = (online) => {
+    try {
+      if (!loggedUser?._id) return;
+
+      navigator.sendBeacon(
+        `${API_BASE}/api/users/online`,
+        new Blob([JSON.stringify({ userId: loggedUser._id, online })], {
+          type: "application/json",
+        })
+      );
+    } catch (_) {}
+  };
+
+  const updatePresence = async (online) => {
+    try {
+      if (!loggedUser?._id) return;
+
+      await axios.post(`${API_BASE}/api/users/online`, {
+        userId: loggedUser._id,
+        online,
+      });
+    } catch (error) {
+      console.error("Presence update failed", error);
+    }
+  };
+
+  const getImageSrc = (photoValue) => {
+    if (!photoValue) return "";
+
+    const value = String(photoValue).trim();
+    if (!value) return "";
+
+    if (
+      value.startsWith("data:image/") ||
+      value.startsWith("blob:") ||
+      value.startsWith("http://") ||
+      value.startsWith("https://")
+    ) {
+      return value;
+    }
+
+    if (value.startsWith("/")) {
+      return `${API_BASE}${value}`;
+    }
+
+    return `${API_BASE}/${value}`;
+  };
+
+  const getInitial = (name) =>
+    String(name || "U").trim().charAt(0).toUpperCase();
+
+  const formatTime = (value) => {
+    if (!value) return "";
+    return new Date(value).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatDateDivider = (value) => {
+    if (!value) return "";
+    return new Date(value).toLocaleDateString([], {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const isActuallyOnline = (user) => {
+    if (!user) return false;
+    if (user.online !== true) return false;
+    if (!user.lastActive) return true;
+
+    const diff = Date.now() - new Date(user.lastActive).getTime();
+    return diff >= 0 && diff <= ONLINE_RECENT_MS;
+  };
+
+  const getStatusText = (user) => {
+    if (!user) return "offline";
+    if (isActuallyOnline(user)) return "online";
+    if (user.lastActive) return "last seen recently";
+    return "offline";
+  };
+
   const fetchUnreadCounts = async () => {
     try {
-      if (!loggedUser?._id) return {};
-
       const res = await axios.get(
         `${API_BASE}/api/messages/unread/${loggedUser._id}`
       );
@@ -97,41 +170,18 @@ const Chat = () => {
         map[item._id] = item.count;
       });
 
-      setUnreadMap(map);
       return map;
     } catch (error) {
-      console.error("Failed to fetch unread counts", error);
+      console.error("Unread counts fetch failed", error);
       return {};
     }
   };
 
-  const markMessagesAsSeen = async (otherUserId) => {
-    try {
-      if (!loggedUser?._id || !otherUserId) return;
-
-      await axios.patch(`${API_BASE}/api/messages/seen`, {
-        senderId: otherUserId,
-        receiverId: loggedUser._id,
-      });
-
-      setUnreadMap((prev) => ({
-        ...prev,
-        [otherUserId]: 0,
-      }));
-    } catch (error) {
-      console.error("Failed to mark messages as seen", error);
-    }
-  };
-
-  const fetchMatchedUsers = async () => {
-    if (!loggedUser?._id) return [];
-
-    const inboxRes = await axios.get(
-      `${API_BASE}/api/interests/inbox/${loggedUser._id}`
-    );
-    const sentRes = await axios.get(
-      `${API_BASE}/api/interests/sent/${loggedUser._id}`
-    );
+  const fetchAcceptedUsers = async () => {
+    const [inboxRes, sentRes] = await Promise.all([
+      axios.get(`${API_BASE}/api/interests/inbox/${loggedUser._id}`),
+      axios.get(`${API_BASE}/api/interests/sent/${loggedUser._id}`),
+    ]);
 
     const acceptedInbox = (inboxRes.data || [])
       .filter((item) => item.status === "accepted")
@@ -143,347 +193,561 @@ const Chat = () => {
       .map((item) => item.toUserId)
       .filter(Boolean);
 
-    const allMatched = [...acceptedInbox, ...acceptedSent];
+    const allUsers = [...acceptedInbox, ...acceptedSent];
 
-    const uniqueMatched = allMatched.filter(
+    return allUsers.filter(
       (user, index, self) =>
         user?._id &&
         index === self.findIndex((u) => u?._id === user?._id)
     );
-
-    return uniqueMatched;
   };
 
-  const loadChatList = async () => {
-    try {
-      const users = await fetchMatchedUsers();
-      const unreadCounts = await fetchUnreadCounts();
+  const addRouteUserIfMissing = (users) => {
+    const routeUser = routeSelectedUserRef.current;
+    if (!routeUser?._id) return users;
 
-      const usersWithLastMessage = await Promise.all(
-        users.map(async (user) => {
+    const alreadyExists = users.some((u) => u._id === routeUser._id);
+    if (alreadyExists) return users;
+
+    return [
+      {
+        ...routeUser,
+        lastMessage: "Start a conversation",
+        lastMessageTime: null,
+        unreadCount: 0,
+      },
+      ...users,
+    ];
+  };
+
+  const loadSidebar = async (showLoader = false) => {
+    try {
+      if (showLoader) {
+        setPageLoading(true);
+      } else {
+        setSidebarRefreshing(true);
+      }
+
+      const [acceptedUsers, unreadMap] = await Promise.all([
+        fetchAcceptedUsers(),
+        fetchUnreadCounts(),
+      ]);
+
+      let enrichedUsers = await Promise.all(
+        acceptedUsers.map(async (user) => {
           try {
             const msgRes = await axios.get(
               `${API_BASE}/api/messages/${loggedUser._id}/${user._id}`
             );
 
-            const userMessages = msgRes.data || [];
-            const lastMessageObj =
-              userMessages.length > 0
-                ? userMessages[userMessages.length - 1]
-                : null;
+            const arr = msgRes.data || [];
+            const last = arr.length ? arr[arr.length - 1] : null;
 
             return {
               ...user,
-              lastMessage: lastMessageObj?.text || "No messages yet",
-              lastMessageTime: lastMessageObj?.createdAt || null,
-              unreadCount: unreadCounts[user._id] || 0,
+              lastMessage: last?.text || "Start a conversation",
+              lastMessageTime: last?.createdAt || null,
+              unreadCount: unreadMap[user._id] || 0,
             };
-          } catch (err) {
+          } catch {
             return {
               ...user,
-              lastMessage: "No messages yet",
+              lastMessage: "Start a conversation",
               lastMessageTime: null,
-              unreadCount: unreadCounts[user._id] || 0,
+              unreadCount: unreadMap[user._id] || 0,
             };
           }
         })
       );
 
-      usersWithLastMessage.sort((a, b) => {
-        const timeA = a.lastMessageTime
+      enrichedUsers = addRouteUserIfMissing(enrichedUsers);
+
+      enrichedUsers.sort((a, b) => {
+        const aTime = a.lastMessageTime
           ? new Date(a.lastMessageTime).getTime()
           : 0;
-        const timeB = b.lastMessageTime
+        const bTime = b.lastMessageTime
           ? new Date(b.lastMessageTime).getTime()
           : 0;
-        return timeB - timeA;
+        return bTime - aTime;
       });
 
-      setMatchedUsers(usersWithLastMessage);
+      setSidebarUsers(enrichedUsers);
 
-      if (selectedUser?._id) {
-        const refreshedSelected = usersWithLastMessage.find(
-          (u) => u._id === selectedUser._id
-        );
-        if (refreshedSelected) {
-          setSelectedUser((prev) => ({
-            ...prev,
-            ...refreshedSelected,
-          }));
+      if (selectedChatId) {
+        const latestSelected = enrichedUsers.find((u) => u._id === selectedChatId);
+        if (latestSelected) {
+          setSelectedChatUser(latestSelected);
         }
       }
 
-      const routeSelectedUser = location.state?.selectedUser;
-      if (routeSelectedUser?._id && !selectedUser?._id) {
-        const matchedRouteUser =
-          usersWithLastMessage.find((u) => u._id === routeSelectedUser._id) ||
-          routeSelectedUser;
-
-        await openChat(matchedRouteUser);
+      if (
+        !handledRouteRef.current &&
+        routeSelectedUserRef.current?._id &&
+        !messages.length
+      ) {
+        handledRouteRef.current = true;
+        await openChat(routeSelectedUserRef.current, false);
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
     } catch (error) {
-      console.error("Failed to load chat list", error);
+      console.error("Sidebar load failed", error);
+    } finally {
+      if (showLoader) {
+        setPageLoading(false);
+      } else {
+        setSidebarRefreshing(false);
+      }
     }
   };
 
-  const fetchMessages = async (otherUser, shouldSetSelected = true) => {
+  const markMessagesSeen = async (otherUserId) => {
     try {
-      if (!otherUser?._id || !loggedUser?._id) return;
+      await axios.patch(`${API_BASE}/api/messages/seen`, {
+        senderId: otherUserId,
+        receiverId: loggedUser._id,
+      });
 
-      if (shouldSetSelected) {
-        setSelectedUser(otherUser);
-      }
+      setSidebarUsers((prev) =>
+        prev.map((user) =>
+          user._id === otherUserId ? { ...user, unreadCount: 0 } : user
+        )
+      );
+    } catch (error) {
+      console.error("Mark seen failed", error);
+    }
+  };
+
+  const loadMessages = async (
+    otherUserId,
+    showLoader = true,
+    preserveOnFail = false
+  ) => {
+    try {
+      const requestId = Date.now();
+      currentRequestRef.current = requestId;
+
+      if (showLoader) setChatLoading(true);
 
       const res = await axios.get(
-        `${API_BASE}/api/messages/${loggedUser._id}/${otherUser._id}`
+        `${API_BASE}/api/messages/${loggedUser._id}/${otherUserId}`
       );
 
+      if (currentRequestRef.current !== requestId) return;
+
       setMessages(res.data || []);
-
-      const refreshedUser =
-        res.data?.find((msg) => {
-          const senderId = msg.sender?._id || msg.sender;
-          const receiverId = msg.receiver?._id || msg.receiver;
-          return senderId === otherUser._id || receiverId === otherUser._id;
-        }) || null;
-
-      if (shouldSetSelected && refreshedUser) {
-        setSelectedUser((prev) => ({
-          ...prev,
-          ...otherUser,
-        }));
-      }
     } catch (error) {
-      console.error("Failed to load messages", error);
-      setMessages([]);
+      console.error("Messages load failed", error);
+      if (!preserveOnFail) setMessages([]);
+    } finally {
+      if (showLoader) setChatLoading(false);
     }
   };
 
-  const openChat = async (user) => {
+  const openChat = async (user, showLoader = true) => {
     if (!user?._id) return;
 
-    setSelectedUser(user);
-    await fetchMessages(user, false);
-    await markMessagesAsSeen(user._id);
-    await fetchUnreadCounts();
+    setSelectedChatId(user._id);
+    setSelectedChatUser(user);
+
+    await loadMessages(user._id, showLoader, false);
+    await markMessagesSeen(user._id);
   };
 
   const handleSend = async () => {
     try {
-      if (!text.trim() || !selectedUser?._id || !loggedUser?._id) return;
+      if (!text.trim() || !selectedChatId || sending) return;
+
+      setSending(true);
 
       const res = await axios.post(`${API_BASE}/api/messages/send`, {
         sender: loggedUser._id,
-        receiver: selectedUser._id,
+        receiver: selectedChatId,
         text: text.trim(),
       });
 
-      const newMsg = res.data.data;
-
-      setMessages((prev) => [...prev, newMsg]);
+      const newMessage = res.data.data;
+      setMessages((prev) => [...prev, newMessage]);
       setText("");
 
-      setMatchedUsers((prev) =>
+      setSidebarUsers((prev) =>
         prev
           .map((user) =>
-            user._id === selectedUser._id
+            user._id === selectedChatId
               ? {
                   ...user,
-                  lastMessage: newMsg.text,
-                  lastMessageTime: newMsg.createdAt,
+                  lastMessage: newMessage.text,
+                  lastMessageTime: newMessage.createdAt,
+                  unreadCount: 0,
                 }
               : user
           )
           .sort((a, b) => {
-            const timeA = a.lastMessageTime
+            const aTime = a.lastMessageTime
               ? new Date(a.lastMessageTime).getTime()
               : 0;
-            const timeB = b.lastMessageTime
+            const bTime = b.lastMessageTime
               ? new Date(b.lastMessageTime).getTime()
               : 0;
-            return timeB - timeA;
+            return bTime - aTime;
           })
       );
     } catch (error) {
       alert(error?.response?.data?.message || "Failed to send message");
+    } finally {
+      setSending(false);
     }
   };
 
-  const getStatusText = (user) => {
-    if (!user) return "";
+  const filteredUsers = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    if (!q) return sidebarUsers;
 
-    if (user.online) {
-      return "🟢 Online";
-    }
+    return sidebarUsers.filter((user) => {
+      const name = String(user?.name || "").toLowerCase();
+      const city = String(user?.city || "").toLowerCase();
+      const lastMessage = String(user?.lastMessage || "").toLowerCase();
 
-    if (user.lastActive) {
-      return "Last seen recently";
-    }
+      return name.includes(q) || city.includes(q) || lastMessage.includes(q);
+    });
+  }, [sidebarUsers, searchText]);
 
-    return "Offline";
-  };
+  const selectedChatImage = useMemo(
+    () => getImageSrc(selectedChatUser?.photo),
+    [selectedChatUser]
+  );
+
+  if (!loggedUser?._id) {
+    return (
+      <div className="min-h-screen bg-[#efeae2] flex items-center justify-center p-4">
+        <div className="max-w-md w-full rounded-[28px] bg-white shadow-xl p-8 text-center">
+          <div className="text-5xl mb-4">🔐</div>
+          <h2 className="text-2xl font-extrabold text-[#e91e63]">
+            Login required
+          </h2>
+          <button
+            onClick={() => navigate("/login")}
+            className="mt-6 px-5 py-3 rounded-2xl bg-[#e91e63] text-white font-semibold shadow-md"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (pageLoading) {
+    return (
+      <div className="min-h-screen bg-[#efeae2] p-3 md:p-5">
+        <div className="max-w-7xl mx-auto h-[calc(100vh-24px)] md:h-[calc(100vh-40px)] rounded-[28px] bg-[#f7f5f3] shadow-2xl flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto rounded-full border-4 border-pink-100 border-t-pink-500 animate-spin" />
+            <h2 className="mt-5 text-2xl font-extrabold text-[#e91e63]">
+              Loading chats...
+            </h2>
+            <p className="text-gray-500 mt-2">
+              Please wait while we prepare your conversations.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-pink-100 via-rose-50 to-purple-100 p-4 md:p-6">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="card-glass p-4 md:col-span-1">
-          <h2 className="text-2xl font-bold text-pink-600 mb-4">My Chats 💬</h2>
+    <div className="min-h-screen bg-[#efeae2] p-3 md:p-5">
+      <div className="max-w-7xl mx-auto h-[calc(100vh-24px)] md:h-[calc(100vh-40px)] rounded-[28px] overflow-hidden shadow-2xl border border-[#f3dce5] bg-[#f7f5f3] flex">
+        <div className="w-[360px] min-w-[360px] bg-[#fdf7fa] border-r border-[#f1d8e3] flex flex-col">
+          <div className="px-5 py-4 border-b border-[#f1d8e3] bg-white/70">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-2xl font-extrabold text-[#e91e63]">
+                My Chats
+              </h2>
 
-          {matchedUsers.length === 0 ? (
-            <p className="text-gray-600">No accepted matches yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {matchedUsers.map((user) => (
-                <button
-                  key={user._id}
-                  onClick={() => openChat(user)}
-                  className={`w-full text-left p-3 rounded-2xl border transition ${
-                    selectedUser?._id === user._id
-                      ? "border-pink-400 bg-pink-50"
-                      : "border-pink-200 bg-white hover:bg-pink-50"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={user.photo || "https://via.placeholder.com/50"}
-                      alt={user.name}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
+              <div className="flex items-center gap-2">
+                {sidebarRefreshing && (
+                  <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-white border text-gray-500">
+                    Updating...
+                  </span>
+                )}
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p
-                          className={`truncate ${
-                            user.unreadCount > 0 &&
-                            selectedUser?._id !== user._id
-                              ? "font-bold text-pink-600"
-                              : "font-semibold text-gray-800"
-                          }`}
-                        >
-                          {user.name}
-                        </p>
+                <span className="text-xs font-semibold px-3 py-1 rounded-full bg-pink-50 border border-pink-200 text-[#e91e63]">
+                  {sidebarUsers.length}
+                </span>
+              </div>
+            </div>
 
-                        {user.unreadCount > 0 &&
-                          selectedUser?._id !== user._id && (
-                            <span className="min-w-6 h-6 px-2 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+            <div className="mt-4 flex gap-2">
+              <div className="flex-1 rounded-2xl bg-white border border-[#f1d8e3] px-4 py-3 shadow-sm">
+                <input
+                  type="text"
+                  placeholder="Search chats..."
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  className="w-full bg-transparent outline-none text-sm text-gray-700 placeholder:text-gray-400"
+                />
+              </div>
+
+              <button
+                onClick={() => loadSidebar(false)}
+                className="px-4 rounded-2xl bg-white border border-[#f1d8e3] text-[#e91e63] font-semibold shadow-sm hover:bg-pink-50"
+              >
+                ↻
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {filteredUsers.length === 0 ? (
+              <div className="rounded-3xl bg-white border border-[#f1d8e3] p-6 text-center mt-3">
+                <div className="text-4xl mb-3">
+                  {sidebarUsers.length === 0 ? "💌" : "🔎"}
+                </div>
+                <p className="text-gray-700 font-semibold">
+                  {sidebarUsers.length === 0 ? "No chats yet" : "No matching chats"}
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  {sidebarUsers.length === 0
+                    ? "Accepted matches will appear here."
+                    : "Try a different keyword."}
+                </p>
+              </div>
+            ) : (
+              filteredUsers.map((user) => {
+                const imageSrc = getImageSrc(user.photo);
+                const isActive = selectedChatId === user._id;
+                const hasUnread = (user.unreadCount || 0) > 0 && !isActive;
+                const online = isActuallyOnline(user);
+
+                return (
+                  <button
+                    key={user._id}
+                    onClick={() => openChat(user, true)}
+                    className={`w-full text-left rounded-3xl p-3 transition-all border ${
+                      isActive
+                        ? "bg-[#ffeaf2] border-[#f7b5cc] shadow-sm"
+                        : "bg-white border-[#f1d8e3] hover:bg-[#fff4f8]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {imageSrc ? (
+                        <img
+                          src={imageSrc}
+                          alt={user.name}
+                          className="w-14 h-14 rounded-full object-cover border border-pink-100"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-full bg-pink-100 text-[#e91e63] font-bold flex items-center justify-center border border-pink-200">
+                          {getInitial(user.name)}
+                        </div>
+                      )}
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-bold text-gray-800 truncate">
+                            {user.name}
+                          </p>
+
+                          {user.lastMessageTime && (
+                            <span className="text-[11px] text-gray-400 whitespace-nowrap">
+                              {formatTime(user.lastMessageTime)}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 mt-1">
+                          <span
+                            className={`text-[11px] font-semibold ${
+                              online ? "text-green-600" : "text-gray-400"
+                            }`}
+                          >
+                            {online ? "online" : "offline"}
+                          </span>
+
+                          {hasUnread && (
+                            <span className="min-w-5 h-5 px-1.5 rounded-full bg-[#e91e63] text-white text-[10px] font-bold flex items-center justify-center">
                               {user.unreadCount}
                             </span>
                           )}
+                        </div>
+
+                        <p
+                          className={`mt-2 text-sm truncate ${
+                            hasUnread ? "text-[#e91e63] font-semibold" : "text-gray-500"
+                          }`}
+                        >
+                          {hasUnread ? "New message" : user.lastMessage}
+                        </p>
                       </div>
-
-                      <p className="text-xs text-gray-500 mb-1">
-                        {user.online ? "🟢 Online" : "Offline"}
-                      </p>
-
-                      <p
-                        className={`text-sm truncate ${
-                          user.unreadCount > 0 &&
-                          selectedUser?._id !== user._id
-                            ? "font-semibold text-pink-600"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        {user.unreadCount > 0 &&
-                        selectedUser?._id !== user._id
-                          ? "New message"
-                          : user.lastMessage}
-                      </p>
                     </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
 
-        <div className="card-glass p-4 md:col-span-2 flex flex-col h-[70vh]">
-          {!selectedUser ? (
-            <div className="flex items-center justify-center h-full text-gray-500 text-lg">
-              Select a match to start chatting
+        <div className="flex-1 flex flex-col bg-[#efeae2]">
+          {!selectedChatUser ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
+              <div className="w-24 h-24 rounded-full bg-white border border-[#f1d8e3] flex items-center justify-center text-4xl shadow-sm">
+                💬
+              </div>
+              <h3 className="mt-5 text-2xl font-bold text-gray-700">
+                Select a chat
+              </h3>
+              <p className="mt-2 text-gray-500 max-w-md">
+                Choose a match from the left side to start chatting.
+              </p>
             </div>
           ) : (
             <>
-              <div className="border-b border-pink-200 pb-3 mb-3 flex items-center gap-3">
-                <img
-                  src={selectedUser.photo || "https://via.placeholder.com/50"}
-                  alt={selectedUser.name}
-                  className="w-12 h-12 rounded-full object-cover"
-                />
-                <div>
-                  <h3 className="font-bold text-lg text-pink-600">
-                    {selectedUser.name}
+              <div className="px-5 py-4 bg-[#fdf7fa] border-b border-[#f1d8e3] flex items-center gap-3">
+                {selectedChatImage ? (
+                  <img
+                    src={selectedChatImage}
+                    alt={selectedChatUser.name}
+                    className="w-12 h-12 rounded-full object-cover border border-pink-100"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-pink-100 text-[#e91e63] font-bold flex items-center justify-center border border-pink-200">
+                    {getInitial(selectedChatUser.name)}
+                  </div>
+                )}
+
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-lg text-gray-800 truncate">
+                    {selectedChatUser.name}
                   </h3>
                   <p className="text-sm text-gray-500">
-                    {selectedUser.city || "City not added"}
+                    {selectedChatUser.city || "City not added"}
                   </p>
                   <p
-                    className={`text-xs font-medium ${
-                      selectedUser.online ? "text-green-600" : "text-gray-400"
+                    className={`text-xs font-semibold mt-0.5 ${
+                      isActuallyOnline(selectedChatUser)
+                        ? "text-green-600"
+                        : "text-gray-400"
                     }`}
                   >
-                    {getStatusText(selectedUser)}
+                    {getStatusText(selectedChatUser)}
                   </p>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                {messages.length === 0 ? (
-                  <p className="text-gray-500">No messages yet.</p>
+              <div
+                className="flex-1 overflow-y-auto px-4 py-5 md:px-6"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle at 1px 1px, rgba(233,30,99,0.04) 1px, transparent 0)",
+                  backgroundSize: "22px 22px",
+                }}
+              >
+                {chatLoading ? (
+                  <div className="h-full flex flex-col justify-center space-y-4">
+                    <ChatBubbleSkeleton align="left" />
+                    <ChatBubbleSkeleton align="right" />
+                    <ChatBubbleSkeleton align="left" />
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center">
+                    <div className="w-16 h-16 rounded-full bg-white border border-[#f1d8e3] flex items-center justify-center text-3xl shadow-sm">
+                      ✨
+                    </div>
+                    <p className="text-gray-700 font-semibold mt-4">
+                      No messages yet
+                    </p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Send the first message to start the conversation.
+                    </p>
+                  </div>
                 ) : (
-                  messages.map((msg) => {
-                    const isMine =
-                      msg.sender === loggedUser._id ||
-                      msg.sender?._id === loggedUser._id;
+                  <div className="space-y-3">
+                    {messages.map((msg, index) => {
+                      const isMine =
+                        msg.sender === loggedUser._id ||
+                        msg.sender?._id === loggedUser._id;
 
-                    return (
-                      <div
-                        key={msg._id}
-                        className={`flex ${
-                          isMine ? "justify-end" : "justify-start"
-                        }`}
-                      >
-                        <div
-                          className={`max-w-[75%] px-4 py-2 rounded-2xl shadow ${
-                            isMine
-                              ? "bg-pink-500 text-white"
-                              : "bg-white text-gray-800 border border-pink-100"
-                          }`}
-                        >
-                          <p>{msg.text}</p>
-                          <p
-                            className={`text-[10px] mt-1 ${
-                              isMine ? "text-pink-100" : "text-gray-400"
+                      const currentDay = formatDateDivider(msg.createdAt);
+                      const prevDay =
+                        index > 0
+                          ? formatDateDivider(messages[index - 1]?.createdAt)
+                          : null;
+
+                      return (
+                        <React.Fragment key={msg._id}>
+                          {currentDay !== prevDay && (
+                            <div className="flex justify-center my-3">
+                              <span className="px-3 py-1 rounded-full bg-white border border-[#f1d8e3] text-[11px] font-semibold text-gray-500 shadow-sm">
+                                {currentDay}
+                              </span>
+                            </div>
+                          )}
+
+                          <div
+                            className={`flex ${
+                              isMine ? "justify-end" : "justify-start"
                             }`}
                           >
-                            {new Date(msg.createdAt).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })
+                            <div
+                              className={`max-w-[78%] px-4 py-2.5 rounded-2xl shadow-sm ${
+                                isMine
+                                  ? "bg-[#e91e63] text-white rounded-br-md"
+                                  : "bg-white text-gray-800 border border-[#f1d8e3] rounded-bl-md"
+                              }`}
+                            >
+                              <p className="break-words text-[15px]">{msg.text}</p>
+                              <p
+                                className={`text-[10px] mt-1.5 text-right ${
+                                  isMine ? "text-pink-100" : "text-gray-400"
+                                }`}
+                              >
+                                {formatTime(msg.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                        </React.Fragment>
+                      );
+                    })}
+                    <div ref={messagesEndRef} />
+                  </div>
                 )}
-                <div ref={messagesEndRef} />
               </div>
 
-              <div className="mt-4 flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Type your message..."
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  className="input-soft"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleSend();
-                    }
-                  }}
-                />
-                <button onClick={handleSend} className="btn-primary px-6">
-                  Send
-                </button>
+              <div className="p-4 bg-[#fdf7fa] border-t border-[#f1d8e3]">
+                <div className="flex items-center gap-2 rounded-3xl bg-white border border-[#f1d8e3] px-3 py-2 shadow-sm">
+                  <button
+                    type="button"
+                    className="w-10 h-10 rounded-full bg-pink-50 text-[#e91e63] text-lg font-bold hover:bg-pink-100"
+                  >
+                    😊
+                  </button>
+
+                  <input
+                    type="text"
+                    placeholder="Type a message"
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    className="flex-1 bg-transparent outline-none px-2 py-2 text-gray-700 placeholder:text-gray-400"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleSend();
+                      }
+                    }}
+                    disabled={sending}
+                  />
+
+                  <button
+                    onClick={handleSend}
+                    disabled={sending || !text.trim()}
+                    className={`px-5 py-2.5 rounded-2xl font-semibold transition ${
+                      sending || !text.trim()
+                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        : "bg-[#e91e63] text-white shadow-md hover:opacity-95"
+                    }`}
+                  >
+                    {sending ? "Sending..." : "Send"}
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -492,5 +756,20 @@ const Chat = () => {
     </div>
   );
 };
+
+const ChatBubbleSkeleton = ({ align = "left" }) => (
+  <div className={`flex ${align === "right" ? "justify-end" : "justify-start"}`}>
+    <div
+      className={`rounded-2xl px-4 py-3 animate-pulse ${
+        align === "right"
+          ? "w-44 bg-pink-100"
+          : "w-56 bg-white border border-pink-100"
+      }`}
+    >
+      <div className="h-3 bg-gray-200 rounded w-3/4 mb-2" />
+      <div className="h-3 bg-gray-200 rounded w-1/2" />
+    </div>
+  </div>
+);
 
 export default Chat;
